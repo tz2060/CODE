@@ -1,0 +1,123 @@
+/* =========================================================
+   轻触按钮：呼吸光环 + 按下反馈
+   ========================================================= */
+
+#tapArea {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 38px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  transition: opacity 0.6s, transform 0.6s;
+}
+
+#tapArea.hide {
+  opacity: 0;
+  transform: translateY(20px);
+  pointer-events: none;
+}
+
+#tapButton {
+  position: relative;
+  width: 102px;
+  height: 102px;
+  border: 1px solid rgba(255, 248, 224, 0.78);
+  border-radius: 50%;
+  background: radial-gradient(
+    circle,
+    rgba(255, 244, 202, 0.18) 0%,
+    rgba(255, 248, 224, 0.04) 48%,
+    rgba(255, 255, 255, 0) 72%
+  );
+  box-shadow: 0 0 24px rgba(255, 224, 159, 0.24), inset 0 0 22px rgba(255, 255, 255, 0.22);
+  color: #fff6df;
+  display: grid;
+  place-items: center;
+  touch-action: manipulation;
+  outline: none;
+  animation: breathe 2.2s ease-in-out infinite;
+  cursor: pointer;
+}
+
+#tapButton:before,
+#tapButton:after {
+  content: '';
+  position: absolute;
+  inset: 8px;
+  border: 1px solid rgba(255, 245, 220, 0.38);
+  border-radius: 50%;
+  transform: scale(1);
+  opacity: 0.8;
+}
+
+#tapButton:after {
+  inset: -8px;
+  opacity: 0.36;
+  animation: ripple 2.2s ease-out infinite;
+}
+
+#tapButton .tap-icon {
+  font-size: 25px;
+  font-weight: 300;
+  line-height: 1;
+  text-shadow: 0 0 14px rgba(255, 239, 190, 0.7);
+}
+
+#tapButton.pressed {
+  animation: none;
+  transform: scale(0.91);
+  background: radial-gradient(circle, rgba(255, 255, 235, 0.56), rgba(255, 229, 169, 0.12) 70%);
+}
+
+#tapText {
+  font-size: 11px;
+  letter-spacing: 0.3em;
+  color: rgba(255, 247, 225, 0.88);
+  text-shadow: 0 2px 12px rgba(62, 62, 47, 0.3);
+}
+
+#startTag {
+  font-size: 9px;
+  letter-spacing: 0.22em;
+  color: rgba(255, 245, 221, 0.62);
+  margin-top: -4px;
+}
+
+@keyframes breathe {
+  0%,
+  100% {
+    transform: scale(1);
+    box-shadow: 0 0 20px rgba(255, 224, 159, 0.2), inset 0 0 20px rgba(255, 255, 255, 0.18);
+  }
+  50% {
+    transform: scale(1.045);
+    box-shadow: 0 0 33px rgba(255, 224, 159, 0.42), inset 0 0 25px rgba(255, 255, 255, 0.28);
+  }
+}
+
+@keyframes ripple {
+  0% {
+    transform: scale(0.85);
+    opacity: 0.55;
+  }
+  100% {
+    transform: scale(1.32);
+    opacity: 0;
+  }
+}
+
+@media (min-width: 700px) {
+  #tapArea {
+    bottom: 30px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #tapButton,
+  #tapButton:after {
+    animation: none;
+  }
+}

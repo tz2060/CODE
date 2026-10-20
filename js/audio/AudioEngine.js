@@ -1,0 +1,179 @@
+/**
+ * 音频引擎
+ * ---------------------------------------------------------------
+ * 一个 <audio> 元素负责播放，一条 Web Audio 分析链负责取能量，
+ * 另有一次离线解码用于提取旋律走向。
+ *
+ * 事件：
+ *  - 'ended'       播放结束
+ *  - 'error'       播放出错
+ *  - 'melodyready' 旋律分析完成（payload: AudioBuffer）
+ *
+ * 关于音频来源：音乐只以 base64 形式放在 js/audio/song-data.js 里。
+ * 这不是偷懒——file:// 下外部 mp3 属于跨域资源，一旦接入 createMediaElementSource
+ * 就会被浏览器静音重路由（实测分析节点输出全零）；而 data: URL 与页面同源，
+ * 播放、节拍分析、旋律解码全都正常。base64 比原文件大约 1/3，是必须付的代价。
+ */
+(function (PP) {
+  const { EventBus } = PP;
+  const { lerp } = PP;
+  const { SONG_BASE64 } = PP;
+
+  const SONG_SRC = `data:audio/mpeg;base64,${SONG_BASE64}`;
+
+  class AudioEngine extends EventBus {
+    /** 旋律分析是否已发起（避免重复解码） */
+    #analysisStarted = false;
+
+    constructor() {
+      super();
+
+      this.element = new Audio(SONG_SRC);
+      // 媒体元素挂在文档里更稳（部分浏览器不播游离的 audio）；用零尺寸占位，不参与布局
+      this.element.style.cssText = 'position:absolute;width:0;height:0;opacity:0;pointer-events:none';
+      document.body.appendChild(this.element);
+      this.element.preload = 'auto';
+      this.element.playsInline = true;
+      this.element.load();
+
+      this.muted = false;
+      this.context = null;
+      this.analyser = null;
+      this.sourceNode = null;
+      this.frequencyData = null;
+
+      /** 平滑后的整体/低频/中频能量，0–1 */
+      this.energy = 0;
+      this.lowEnergy = 0;
+      this.midEnergy = 0;
+
+      /** 离线解码得到的整首歌 PCM，供旋律分析使用 */
+      this.buffer = null;
+
+      this.element.addEventListener('ended', () => this.emit('ended'));
+      this.element.addEventListener('error', () => this.emit('error'));
+    }
+
+    get currentTime() {
+      return this.element.currentTime || 0;
+    }
+
+    get duration() {
+      return Number.isFinite(this.element.duration) ? this.element.duration : 0;
+    }
+
+    get paused() {
+      return this.element.paused;
+    }
+
+    /** 建立分析链（必须由用户手势触发，否则移动端会挂起） */
+    ensureGraph() {
+      if (this.context) return;
+
+      try {
+        const Ctor = window.AudioContext || window.webkitAudioContext;
+        this.context = new Ctor();
+
+        this.analyser = this.context.createAnalyser();
+        this.analyser.fftSize = 512;
+        this.analyser.smoothingTimeConstant = 0.82;
+
+        this.sourceNode = this.context.createMediaElementSource(this.element);
+        this.sourceNode.connect(this.analyser);
+        this.analyser.connect(this.context.destination);
+
+        this.frequencyData = new Uint8Array(this.analyser.frequencyBinCount);
+        this.#analyzeMelody();
+      } catch (error) {
+        console.warn('Web Audio 分析链不可用，将以静默方式继续', error);
+      }
+    }
+
+    async #analyzeMelody() {
+      if (this.#analysisStarted || !this.context) return;
+      this.#analysisStarted = true;
+
+      try {
+        const bytes = await this.#loadBytes();
+        this.buffer = await this.context.decodeAudioData(bytes);
+        this.emit('melodyready', this.buffer);
+      } catch (error) {
+        console.warn('旋律分析不可用，使用内置旋律轮廓', error);
+      }
+    }
+
+    /** 取一段可解码的音频字节 */
+    async #loadBytes() {
+      const binary = atob(SONG_BASE64);
+      const bytes = new Uint8Array(binary.length);
+      for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+      return bytes.buffer;
+    }
+
+    /** 开始播放（从 0 开始） */
+    play() {
+      this.ensureGraph();
+      if (this.context && this.context.state === 'suspended') {
+        this.context.resume().catch(() => {});
+      }
+      this.element.currentTime = 0;
+      this.element.muted = this.muted;
+
+      const promise = this.element.play();
+      if (promise && promise.catch) {
+        promise.catch(() => this.emit('error', 'blocked'));
+      }
+    }
+
+    /** 切换静音，返回切换后的状态 */
+    toggleMute() {
+      this.muted = !this.muted;
+      this.element.muted = this.muted;
+      return this.muted;
+    }
+
+    /** 从当前位置继续播放 */
+    resume() {
+      if (!this.element.paused) return;
+      if (this.context && this.context.state === 'suspended') {
+        this.context.resume().catch(() => {});
+      }
+      this.element.play().catch(() => {});
+    }
+
+    stop() {
+      try {
+        this.element.pause();
+        this.element.currentTime = 0;
+      } catch {
+        /* 忽略：部分浏览器在未加载完成时不允许设置 currentTime */
+      }
+    }
+
+    /** 每帧更新三条能量曲线 */
+    updateEnergy() {
+      if (!this.analyser || !this.frequencyData) return;
+
+      this.analyser.getByteFrequencyData(this.frequencyData);
+      const n = this.frequencyData.length;
+      const lowEnd = Math.floor(n * 0.12);
+      const midEnd = Math.floor(n * 0.52);
+
+      let all = 0;
+      let low = 0;
+      let mid = 0;
+      for (let i = 0; i < n; i++) {
+        const v = this.frequencyData[i] / 255;
+        all += v;
+        if (i < lowEnd) low += v;
+        else if (i < midEnd) mid += v;
+      }
+
+      this.energy = lerp(this.energy, all / n, 0.24);
+      this.lowEnergy = lerp(this.lowEnergy, low / Math.max(1, lowEnd), 0.2);
+      this.midEnergy = lerp(this.midEnergy, mid / Math.max(1, midEnd - lowEnd), 0.2);
+    }
+  }
+
+  PP.AudioEngine = AudioEngine;
+})(window.PP);

@@ -1,0 +1,48 @@
+/** 公园步道：一条缓缓蜿蜒的石板路，贯穿整片草坪。 */
+(function (PP) {
+  function createParkPath(world) {
+    const steps = 300;
+    const zStart = 14;
+    const zEnd = -850;
+    const width = 11.2;
+
+    const positions = [];
+    const indices = [];
+    const centerX = (z) => 1.65 * Math.sin(-z * 0.008) + 0.48 * Math.sin(-z * 0.023);
+    const leftPts = [];
+    const rightPts = [];
+
+    for (let i = 0; i <= steps; i++) {
+      const t = i / steps;
+      const z = zStart + (zEnd - zStart) * t;
+      const x = centerX(z);
+      positions.push(x - width / 2, 0.012, z, x + width / 2, 0.012, z);
+      leftPts.push(new THREE.Vector3(x - width / 2, 0.024, z));
+      rightPts.push(new THREE.Vector3(x + width / 2, 0.024, z));
+      if (i < steps) {
+        const a = i * 2;
+        const b = a + 1;
+        const c = a + 2;
+        const d = a + 3;
+        indices.push(a, c, b, b, c, d);
+      }
+    }
+
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+    geo.setIndex(indices);
+    geo.computeVertexNormals();
+
+    const path = new THREE.Mesh(
+      geo,
+      new THREE.MeshStandardMaterial({ color: 0xb9b09d, roughness: 1, side: THREE.DoubleSide })
+    );
+    world.scene.add(path);
+
+    const edgeMat = new THREE.LineBasicMaterial({ color: 0xe0d5bb, transparent: true, opacity: 0.58 });
+    world.scene.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(leftPts), edgeMat));
+    world.scene.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(rightPts), edgeMat));
+  }
+
+  PP.createParkPath = createParkPath;
+})(window.PP);

@@ -1,0 +1,87 @@
+/* =========================================================
+   封面：开始页 / 结算页
+   ========================================================= */
+
+#startCover,
+#endCover {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  text-align: center;
+  padding: 30px;
+  background: linear-gradient(180deg, rgba(39, 58, 55, 0.17), rgba(28, 43, 39, 0.28));
+  transition: opacity 0.9s, visibility 0.9s;
+  pointer-events: none;
+}
+
+#startCover.gone,
+#endCover.gone {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+#endCover:not(.gone) {
+  pointer-events: auto;
+}
+
+.cover-kicker {
+  font-size: 10px;
+  letter-spacing: 0.35em;
+  color: #fff0cf;
+  margin-bottom: 20px;
+  text-shadow: 0 2px 15px rgba(49, 50, 39, 0.4);
+}
+
+.cover-title {
+  font-family: 'Songti SC', 'STSong', 'Noto Serif SC', serif;
+  font-weight: 400;
+  letter-spacing: 0.16em;
+  font-size: clamp(29px, 7.5vw, 43px);
+  line-height: 1.55;
+  color: #fff5da;
+  text-shadow: 0 3px 28px rgba(65, 59, 42, 0.4);
+}
+
+.cover-desc {
+  margin-top: 17px;
+  max-width: 285px;
+  font-size: 12px;
+  line-height: 2.1;
+  letter-spacing: 0.12em;
+  color: rgba(255, 247, 222, 0.85);
+  text-shadow: 0 2px 12px rgba(45, 55, 43, 0.4);
+}
+
+.cover-foot {
+  position: absolute;
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 20px);
+  font-size: 9px;
+  letter-spacing: 0.18em;
+  color: rgba(255, 246, 226, 0.62);
+}
+
+#endCover {
+  background: linear-gradient(180deg, rgba(25, 45, 48, 0.04), rgba(25, 45, 48, 0.43));
+  gap: 8px;
+}
+
+#endCover .cover-title {
+  font-size: clamp(27px, 7vw, 38px);
+}
+
+#restart {
+  margin-top: 25px;
+  color: #fff5d9;
+  border: 1px solid rgba(255, 248, 225, 0.62);
+  background: rgba(255, 255, 255, 0.11);
+  border-radius: 30px;
+  padding: 12px 25px;
+  letter-spacing: 0.16em;
+  font-size: 12px;
+  backdrop-filter: blur(8px);
+  cursor: pointer;
+}
