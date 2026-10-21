@@ -39,25 +39,20 @@
       // 照片：大画幅铺在画面下方，顶边让出天空（太阳/云仍在上方可见）
       // 相机静止，摆一次即可；相机没被加入场景图，所以照片是场景里的实体而非相机子节点
       const photo = game.dreamPhoto;
-      photo.placeBackdrop(cam, {
-        topFraction: DREAM_PHOTO.topFraction,
-        overscan: DREAM_PHOTO.overscan,
-      });
+      photo.placeBackdrop(cam, { overscan: DREAM_PHOTO.overscan });
       photo.show();
 
-      // 飞机航线：镜头空间里，从「当前位置」平滑接管，再升起越过照片、飞进天空。
-      // 照片摆好后取它在镜头空间的位置、按实际顶边规划航线，保证一定从照片上方掠过。
+      // 飞机航线：镜头空间里，从「当前位置」平滑接管，再升起飞进天空。
+      // 照片铺满整个画面（半透明），飞机从下方升起、穿过照片飞进天空。
       const start = cam.worldToLocal(plane.position.clone());
-      const photoLocal = cam.worldToLocal(photo.group.position.clone());
-      const top = photoLocal.y + photo.height / 2; // 照片顶（镜头空间 Y）
       const D = DREAM_PHOTO.distance;
       this.curve = new THREE.CatmullRomCurve3(
         [
           start,
-          new THREE.Vector3(0, Math.max(1, top * 0.4), -D * 0.68),
-          new THREE.Vector3(0, top + 1.4, -D),
-          new THREE.Vector3(0, top + 7, -D * 1.8),
-          new THREE.Vector3(0, top + 16, -D * 2.5),
+          new THREE.Vector3(0, 1.2, -D * 0.5),
+          new THREE.Vector3(0, 4.5, -D),
+          new THREE.Vector3(0, 9, -D * 1.6),
+          new THREE.Vector3(0, 15, -D * 2.2),
         ],
         false,
         'catmullrom',

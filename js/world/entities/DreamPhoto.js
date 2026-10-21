@@ -127,41 +127,32 @@
     }
 
     /**
-     * 大画幅构图：横向铺满，顶边落在 topFraction（0–1，从画面顶部算），
-     * 上方留出天空给太阳和云。照片带轻微透视倾斜。
+     * 整屏覆盖：照片居中、cover 整个画面（上下左右都盖住），
+     * 半透明，让天空/太阳/云/公园从后面透出来。照片带轻微透视倾斜。
      */
-    placeBackdrop(camera, { topFraction = 0.32, overscan = 1.06 } = {}) {
+    placeBackdrop(camera, { overscan = 1.06 } = {}) {
       const fov = (camera.fov * Math.PI) / 180;
       const visH = 2 * DREAM_PHOTO.distance * Math.tan(fov / 2);
       const visW = visH * camera.aspect;
 
-      // 「cover」：照片要盖住「下方 (1-topFraction) 的整块区域」——
-      // 横屏按宽度铺满，竖屏按高度铺满（两侧裁掉，主体居中仍在）
-      const targetH = (1 - topFraction) * visH;
-      const width = Math.max(visW, targetH * this.aspect) * overscan;
+      // cover 两个方向：取能同时盖住宽和高的尺寸
+      const width = Math.max(visW, visH * this.aspect) * overscan;
       this.setSize(width);
 
-      // 横向铺满时照片比可见区高，会裁掉上下。把纹理纵向偏移到「中间那段」，
-      // 保证孩子（主体在图像 y≈0.40–0.72）落在可见区里，而不是被裁掉。
-      const visibleFrac = Math.min(1, targetH / this.height);
+      const p = new THREE.Vector3(0, 0, -DREAM_PHOTO.distance);
+      camera.localToWorld(p);
+      this.group.position.copy(p);
+
+      // 与画面平行：不能用 lookAt（照片巨大、中心偏离视线时会被拉歪）
+      this.group.quaternion.copy(camera.quaternion);
+
+      // 居中覆盖：照片中心对准图像中心，不需要偏移
       const map = this.photo.material.map;
       if (map) {
         map.wrapS = map.wrapT = THREE.ClampToEdgeWrapping;
         map.repeat.set(1, 1);
-        map.offset.set(0, visibleFrac / 2 - 0.5);
+        map.offset.set(0, 0);
       }
-
-      // 顶边在 topFraction 处（相机空间 y）
-      const topY = visH * 0.5 - topFraction * visH;
-      const centerY = topY - this.height * 0.5;
-
-      const p = new THREE.Vector3(0, centerY, -DREAM_PHOTO.distance);
-      camera.localToWorld(p);
-      this.group.position.copy(p);
-
-      // 与画面平行：不能用 lookAt——照片巨大、中心远在画面下方时，
-      // lookAt 会让照片「抬头看相机」，顶边被拉远压低（实测 0.42 而非 0.32）
-      this.group.quaternion.copy(camera.quaternion);
 
       // 轻微倾斜：让相片有透视，不是一张贴死的平图
       this.group.rotateY(-0.05);
@@ -203,13 +194,16 @@
         this.opacity = 1;
       }
 
-      if (this.photo) this.photo.material.opacity = this.opacity;
-      if (this.glow) this.glow.material.opacity = this.opacity * 0.4;
+      if (this.photo) this.photo.material.opacity = this.opacity * DREAM_PHOTO.opacity;
+      if (this.glow) this.glow.material.opacity = this.opacity * 0.2;
 
-      // 悬浮：缓慢上下浮动 + 极轻摆动，强化「浮在空中的立体相片」感
-      this.group.position.y = this.basePos.y + Math.sin(this.elapsed * 0.7) * 0.16;
+      // 悬浮：缓慢浮动 + 轻微摆动。照片铺满整屏时，弧形/倾斜的边都在屏幕外，
+      // 靠这层相对场景的漂移产生前后景深，让半透明照片像浮在场景前面。
+      this.group.position.y = this.basePos.y + Math.sin(this.elapsed * 0.6) * 0.5;
+      this.group.position.x = this.basePos.x + Math.sin(this.elapsed * 0.45 + 1.3) * 0.35;
       this.group.quaternion.copy(this.baseQuat);
-      this.group.rotateZ(Math.sin(this.elapsed * 0.5) * 0.004);
+      this.group.rotateZ(Math.sin(this.elapsed * 0.5) * 0.008);
+      this.group.rotateY(Math.sin(this.elapsed * 0.37) * 0.008);
     }
   }
 
