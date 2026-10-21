@@ -15,7 +15,6 @@
     MelodyGuide,
     Sparks,
     DreamScreen,
-    TrailRibbon,
     FlightController,
     ScoreSystem,
     CaptionSystem,
@@ -62,9 +61,8 @@
       this.guide.build(this.notes);
       this.sparks = new Sparks(this.world.scene);
 
-      // 结尾用：铺满屏幕的记忆画面 + 纸飞机划出的轨迹
+      // 结尾用：铺满屏幕的记忆画面
       this.dreamScreen = new DreamScreen(this.world.scene, this.world.camera);
-      this.trail = new TrailRibbon(this.world.scene, this.world.camera);
 
       this.ui = {
         hud: new Hud(),
@@ -248,7 +246,6 @@
 
       this.sparks.clear();
       this.dreamScreen.reset();
-      this.trail.clear();
       this.world.setSceneryVisible(true);
       this.plane.visible = false;
       this.plane.reset(0, 2.35, 0, 1);

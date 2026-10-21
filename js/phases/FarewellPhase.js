@@ -4,7 +4,7 @@
  * 最后两句「再靠近一点」：
  *   1. 音符与引导线消失
  *   2. 孩子打盹的那张画面铺满屏幕
- *   3. 纸飞机斜着飞过去，穿过画面，在屏幕上留下一道发光轨迹
+ *   3. 纸飞机斜着飞过去，穿过画面，消失在画里
  *   4. 曲终，结算
  *
  * 这里接管了相机与纸飞机的运动（不再走 FlightController 的告别逻辑），
@@ -28,9 +28,8 @@
       game.notes.hideAll();
       game.guide.visible = false;
 
-      // 全屏记忆画面浮现 + 轨迹就绪
+      // 全屏记忆画面浮现
       game.dreamScreen.show();
-      game.trail.begin();
 
       // 定住相机，把飞机换算到相机坐标系，之后的构图就完全可控
       const cam = game.world.camera;
@@ -86,20 +85,8 @@
       // 朝向：机头对准前进方向，略微上扬
       game.plane.group.rotation.set(-0.08, Math.atan2(-this.dir.x, -this.dir.z), 0);
 
-      // 动起来之后才开始记录轨迹
-      if (k > 0.02) {
-        game.trail.push(world);
-      }
-
       // 穿过画面之后收起来，别在后面闪
-      const crossed = localZ <= -DREAM_SCREEN.distance;
-      game.plane.visible = !crossed;
-
-      // 穿越完成后，让留在画面上的轨迹缓缓熄灭
-      if (crossed) {
-        game.trail.strength = Math.max(0, game.trail.strength - dt * DREAM_SCREEN.trailFade);
-      }
-      game.trail.update(DREAM_SCREEN.trailWidth);
+      game.plane.visible = localZ > -DREAM_SCREEN.distance;
 
       game.dreamScreen.update(dt);
 
