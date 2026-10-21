@@ -1,6 +1,7 @@
 /** 单棵树 + 两侧行道树。树会被注册进 world.trees，供主循环做微风摆动。 */
 (function (PP) {
-  const GREENS = [0x618666, 0x72956b, 0x8da477];
+  // 取自照片里树叶的深绿，比原来的低多边形配色更沉、更接近写实
+  const GREENS = [0x46663d, 0x527747, 0x3d5a36];
 
   function createTree(world, x, z, s) {
     const g = new THREE.Group();
@@ -15,8 +16,9 @@
     g.add(trunk);
 
     for (let j = 0; j < 3; j++) {
+      // 用球体而不是二十面体：二十面体是非索引几何，法线按面算，看起来很"块"
       const crown = new THREE.Mesh(
-        new THREE.IcosahedronGeometry(1.05 - j * 0.13, 1),
+        new THREE.SphereGeometry(1.05 - j * 0.13, 10, 8),
         new THREE.MeshStandardMaterial({
           color: GREENS[Math.round(Math.abs(x) + j) % 3],
           roughness: 1,
@@ -44,7 +46,7 @@
 
   /** 路边灌木丛：一簇几团低矮的球，让草地不至于空成一片 */
   function createBushes(world) {
-    const shades = [0x5c7d52, 0x678a5b, 0x53724b];
+    const shades = [0x41603a, 0x4b6b42, 0x385432];
 
     for (let i = 0; i < 70; i++) {
       const z = -6 - i * 12.6;
@@ -59,11 +61,10 @@
       const mat = new THREE.MeshStandardMaterial({
         color: shades[i % 3],
         roughness: 1,
-        flatShading: true,
       });
 
       for (let j = 0; j < 3; j++) {
-        const blob = new THREE.Mesh(new THREE.IcosahedronGeometry(0.52 + (j % 2) * 0.22, 0), mat);
+        const blob = new THREE.Mesh(new THREE.SphereGeometry(0.52 + (j % 2) * 0.22, 8, 6), mat);
         blob.position.set((j - 1) * 0.62, 0.34 + (j % 2) * 0.2, ((j % 2) - 0.5) * 0.7);
         blob.scale.set(1.05, 0.82, 1);
         group.add(blob);
