@@ -20,18 +20,16 @@
   letter-spacing: 0.2em;
   color: rgba(255, 247, 225, 0.9);
   text-shadow: 0 1px 10px #6b6a55;
+  min-width: 0;
 }
 
-.brand strong {
+.brand-name {
   display: block;
-  font-size: 16px;
-  letter-spacing: 0.16em;
-  font-weight: 500;
-  margin-top: 6px;
 }
 
 #musicToggle {
   pointer-events: auto;
+  flex-shrink: 0;
   border: 1px solid rgba(255, 255, 255, 0.5);
   background: rgba(255, 255, 255, 0.17);
   color: white;
@@ -48,6 +46,7 @@
   display: flex;
   align-items: baseline;
   gap: 7px;
+  flex-shrink: 0;
   margin-left: auto;
   margin-right: 3px;
   padding: 8px 12px;
@@ -94,18 +93,17 @@
   box-shadow: 0 0 8px #fff1be;
 }
 
-/* 歌词 */
+/* 歌词：接在品牌名下面，占原来「午后回声」的位置 */
 #poem {
-  position: absolute;
-  left: 22px;
-  right: 22px;
-  top: 23%;
-  text-align: center;
+  margin-top: 5px;
+  max-width: 62vw;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
   pointer-events: none;
   opacity: 0;
-  transform: translateY(8px);
-  transition: opacity 0.8s ease, transform 0.8s ease;
-  text-shadow: 0 2px 18px rgba(64, 70, 60, 0.38);
+  transform: translateY(5px);
+  transition: opacity 0.55s ease, transform 0.55s ease;
 }
 
 #poem.show {
@@ -115,26 +113,20 @@
 
 #poemMain {
   font-family: 'Songti SC', 'STSong', 'Noto Serif SC', serif;
-  font-size: clamp(19px, 5vw, 26px);
+  font-size: 15px;
   font-weight: 400;
-  letter-spacing: 0.14em;
-  line-height: 1.8;
+  letter-spacing: 0.1em;
+  line-height: 1.5;
   color: #fff7e6;
-}
-
-#poemSub {
-  font-size: 10px;
-  letter-spacing: 0.28em;
-  margin-top: 8px;
-  color: rgba(255, 247, 225, 0.76);
+  text-shadow: 0 1px 12px rgba(58, 62, 46, 0.72), 0 0 3px rgba(58, 62, 46, 0.5);
 }
 
 @media (min-width: 700px) {
-  #poem {
-    top: 25%;
-  }
   #topbar {
     padding-left: 26px;
     padding-right: 26px;
+  }
+  #poemMain {
+    font-size: 16px;
   }
 }
