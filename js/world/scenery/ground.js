@@ -3,7 +3,7 @@
   function createGround(world) {
     const lawn = new THREE.Mesh(
       new THREE.PlaneGeometry(260, 900),
-      new THREE.MeshStandardMaterial({ color: 0x7ca06c, roughness: 1 })
+      new THREE.MeshStandardMaterial({ color: 0x74a066, roughness: 1 })
     );
     lawn.rotation.x = -Math.PI / 2;
     lawn.position.set(0, -0.13, -330);
@@ -13,7 +13,7 @@
       const strip = new THREE.Mesh(
         new THREE.PlaneGeometry(260, 7.8),
         new THREE.MeshBasicMaterial({
-          color: i % 2 ? 0x89a975 : 0x809f6a,
+          color: i % 2 ? 0x83a86e : 0x6f9c60,
           transparent: true,
           opacity: 0.13,
           depthWrite: false,

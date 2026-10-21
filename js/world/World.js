@@ -9,6 +9,7 @@
     createParkPath,
     createPond,
     createTrees,
+    createBushes,
     swayTrees,
     createBenchesAndLamps,
     createGazebo,
@@ -68,6 +69,7 @@
       createParkPath(this);
       createPond(this);
       createTrees(this);
+      createBushes(this);
       createBenchesAndLamps(this);
       createGazebo(this);
       this.sunGlow = createSunAndClouds(this).sunGlow;

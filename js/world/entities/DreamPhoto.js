@@ -80,16 +80,17 @@
         })
       );
       this.pool.rotation.x = -Math.PI / 2;
-      this.pool.scale.set(this.width * 2.15, this.depth * 2.15, 1);
+      this.pool.scale.set(this.width * 0.5, this.depth * 0.5, 1);
       this.pool.position.y = DREAM_PHOTO.lift;
       this.group.add(this.pool);
     }
 
     /** 相纸：白边 + 圆角 + 内圈暖光 */
     #makePhotoTexture(image) {
-      const border = Math.round(image.width * 0.045);
-      const w = image.width + border * 2;
-      const h = image.height + border * 2;
+      const scale = 2; // 铺到 16 个单位后仍然清晰
+      const border = Math.round(image.width * 0.042) * scale;
+      const w = image.width * scale + border * 2;
+      const h = image.height * scale + border * 2;
 
       const canvas = document.createElement('canvas');
       canvas.width = w;
@@ -97,7 +98,7 @@
       const ctx = canvas.getContext('2d');
 
       const outer = new Path2D();
-      outer.roundRect(0, 0, w, h, Math.round(border * 1.7));
+      outer.roundRect(0, 0, w, h, Math.round(border * 1.5));
 
       ctx.save();
       ctx.clip(outer);
@@ -105,18 +106,17 @@
       ctx.fillRect(0, 0, w, h);
 
       const inner = new Path2D();
-      inner.roundRect(border, border, image.width, image.height, Math.round(border * 0.85));
+      inner.roundRect(border, border, image.width * scale, image.height * scale, Math.round(border * 0.8));
       ctx.save();
       ctx.clip(inner);
-      ctx.drawImage(image, border, border);
-      // 内圈暖光，像相纸压着画面
-      ctx.lineWidth = Math.max(2, border * 0.22);
-      ctx.strokeStyle = 'rgba(255, 236, 190, 0.75)';
+      ctx.drawImage(image, border, border, image.width * scale, image.height * scale);
+      ctx.lineWidth = Math.max(2, border * 0.2);
+      ctx.strokeStyle = 'rgba(255, 236, 190, 0.7)';
       ctx.stroke(inner);
       ctx.restore();
       ctx.restore();
 
-      ctx.lineWidth = Math.max(1.5, border * 0.16);
+      ctx.lineWidth = Math.max(1.5, border * 0.14);
       ctx.strokeStyle = 'rgba(255, 240, 205, 0.9)';
       ctx.stroke(outer);
 
@@ -144,11 +144,15 @@
       return texture;
     }
 
-    /** 把照片铺到步道的某个 z 上（自动对齐路中心线） */
+    /**
+     * 把照片铺到步道的某个 z 上（自动对齐路中心线）。
+     * 画面本身再往远处推 `back`，但 center 仍锚在 z 上——
+     * 相机与飞机航线都以 center 为准，所以构图不受影响。
+     */
     place(z) {
       this.z = z;
       const x = pathCenterX(z);
-      this.group.position.set(x, 0, z);
+      this.group.position.set(x, 0, z - DREAM_PHOTO.back);
       this.center.set(x, DREAM_PHOTO.lift, z);
     }
 
@@ -185,7 +189,7 @@
       }
 
       this.photo.material.opacity = this.opacity;
-      this.pool.material.opacity = this.opacity * 0.55;
+      this.pool.material.opacity = this.opacity * 0.22;
 
       // 出现时略微"长"出来，之后极缓地呼吸，避免画面死板
       const grow = 0.94 + 0.06 * this.opacity;
@@ -193,7 +197,7 @@
       this.photo.scale.set(this.width * grow * breath, this.depth * grow * breath, 1);
 
       const poolBreath = 1 + Math.sin(this.elapsed * 0.85) * 0.05;
-      this.pool.scale.set(this.width * 2.15 * poolBreath, this.depth * 2.15 * poolBreath, 1);
+      this.pool.scale.set(this.width * 0.5 * poolBreath, this.depth * 0.5 * poolBreath, 1);
     }
   }
 

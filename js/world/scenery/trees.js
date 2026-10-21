@@ -42,6 +42,37 @@
     }
   }
 
+  /** 路边灌木丛：一簇几团低矮的球，让草地不至于空成一片 */
+  function createBushes(world) {
+    const shades = [0x5c7d52, 0x678a5b, 0x53724b];
+
+    for (let i = 0; i < 70; i++) {
+      const z = -6 - i * 12.6;
+      const side = i % 2 ? 1 : -1;
+      const x = side * (6.4 + (i % 4) * 1.15);
+      const s = 0.72 + (i % 5) * 0.14;
+
+      const group = new THREE.Group();
+      group.position.set(x, 0, z);
+      group.scale.setScalar(s);
+
+      const mat = new THREE.MeshStandardMaterial({
+        color: shades[i % 3],
+        roughness: 1,
+        flatShading: true,
+      });
+
+      for (let j = 0; j < 3; j++) {
+        const blob = new THREE.Mesh(new THREE.IcosahedronGeometry(0.52 + (j % 2) * 0.22, 0), mat);
+        blob.position.set((j - 1) * 0.62, 0.34 + (j % 2) * 0.2, ((j % 2) - 0.5) * 0.7);
+        blob.scale.set(1.05, 0.82, 1);
+        group.add(blob);
+      }
+
+      world.scene.add(group);
+    }
+  }
+
   /** 微风摆动：音频能量越大，枝叶越活跃 */
   function swayTrees(trees, now, audioEnergy) {
     for (let i = 0; i < trees.length; i++) {
@@ -53,5 +84,6 @@
   }
 
   PP.createTrees = createTrees;
+  PP.createBushes = createBushes;
   PP.swayTrees = swayTrees;
 })(window.PP);
