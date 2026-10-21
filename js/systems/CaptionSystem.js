@@ -13,8 +13,9 @@
       this.hud.hidePoem();
     }
 
+    /** @returns {number} 当前应显示的歌词下标；还没到第一句时返回 -1 */
     #indexAt(time) {
-      let index = 0;
+      let index = -1;
       for (let i = 0; i < CAPTIONS.length; i++) {
         if (time >= CAPTIONS[i][0]) index = i;
         else break;
@@ -26,14 +27,16 @@
       const index = this.#indexAt(time);
       if (index === this.currentIndex) return;
       this.currentIndex = index;
-      this.hud.showPoem(CAPTIONS[index][1]);
+      if (index < 0) this.hud.hidePoem();
+      else this.hud.showPoem(CAPTIONS[index][1]);
     }
 
     /** 立即显示，用于初始化与重开 */
     show(time) {
       const index = this.#indexAt(time);
       this.currentIndex = index;
-      this.hud.showPoem(CAPTIONS[index][1], true);
+      if (index < 0) this.hud.hidePoem();
+      else this.hud.showPoem(CAPTIONS[index][1]);
     }
   }
 

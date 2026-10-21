@@ -65,12 +65,24 @@
 }
 
 #endCover {
-  background: linear-gradient(180deg, rgba(25, 45, 48, 0.04), rgba(25, 45, 48, 0.43));
+  /* 结算封面现在压在结尾那张记忆画面上，遮罩要够重，文字才读得清 */
+  background: linear-gradient(
+    180deg,
+    rgba(18, 36, 38, 0.34) 0%,
+    rgba(16, 30, 32, 0.58) 48%,
+    rgba(13, 25, 27, 0.8) 100%
+  );
   gap: 8px;
 }
 
 #endCover .cover-title {
   font-size: clamp(27px, 7vw, 38px);
+  text-shadow: 0 3px 30px rgba(10, 22, 24, 0.85), 0 1px 4px rgba(10, 22, 24, 0.7);
+}
+
+#endCover .cover-kicker,
+#endCover .cover-desc {
+  text-shadow: 0 2px 14px rgba(10, 22, 24, 0.8);
 }
 
 #restart {

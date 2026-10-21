@@ -63,6 +63,8 @@
     }
 
     #buildScenery() {
+      const before = this.scene.children.length;
+
       this.skyDome = createSky(this);
       createGround(this);
       createParkPath(this);
@@ -71,6 +73,19 @@
       createBenchesAndLamps(this);
       createGazebo(this);
       this.sunGlow = createSunAndClouds(this).sunGlow;
+
+      // 记录布景对象，结尾画面铺满时可以整体收起
+      this.scenery = this.scene.children.slice(before);
+    }
+
+    /**
+     * 结尾的全屏画面铺满视口后，公园其实一点都看不见了，
+     * 但地面/树木仍然会在深度上挡住画面（尤其相机俯视时下缘会先打到地面），
+     * 所以这时把整片布景收起来。
+     */
+    setSceneryVisible(visible) {
+      if (!this.scenery) return;
+      for (const obj of this.scenery) obj.visible = visible;
     }
 
     /** 天空穹顶永远罩住相机，避免飞行时穿出天空 */

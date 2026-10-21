@@ -144,6 +144,11 @@
       return hits;
     }
 
+    /** 结尾：让所有音符一次性消失 */
+    hideAll() {
+      for (const note of this.items) note.sprite.visible = false;
+    }
+
     reset() {
       for (const note of this.items) {
         note.hit = false;
