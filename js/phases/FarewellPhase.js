@@ -36,15 +36,13 @@
       // 相机停在飞行结束时的姿态，不再移动——照片与航线都以它为基准
       cam.updateMatrixWorld(true);
 
-      // 照片：按相机的位置/朝向摆到正前方固定距离处，并转向正对相机
-      // （相机静止，摆一次即可；相机没被加入场景图，所以照片是场景里的实体而非相机子节点）
+      // 照片：大画幅铺在画面下方，顶边让出天空（太阳/云仍在上方可见）
+      // 相机静止，摆一次即可；相机没被加入场景图，所以照片是场景里的实体而非相机子节点
       const photo = game.dreamPhoto;
-      const fov = (cam.fov * Math.PI) / 180;
-      const visH = 2 * DREAM_PHOTO.distance * Math.tan(fov / 2);
-      const visW = visH * cam.aspect;
-      const width = Math.min(DREAM_PHOTO.width, visW * DREAM_PHOTO.fit);
-      photo.setSize(width);
-      photo.place(cam);
+      photo.placeBackdrop(cam, {
+        topFraction: DREAM_PHOTO.topFraction,
+        overscan: DREAM_PHOTO.overscan,
+      });
       photo.show();
 
       // 飞机航线：镜头空间里，从「当前位置」平滑接管，再升起越过照片、飞进天空。

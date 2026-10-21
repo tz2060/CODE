@@ -155,16 +155,16 @@
           color: 0xffffff,
         })
       );
-      const offsetZ = -170 - Math.random() * 250;
+      const offsetZ = -210 - Math.random() * 190;
       // x 向中间聚一些（竖屏窄视角也能看到几朵），少量放到更外侧铺满横屏
       const far = Math.random() < 0.3;
       const range = far ? 340 : 180;
       const sign = Math.random() < 0.5 ? -1 : 1;
       const x = sign * Math.pow(Math.random(), 1.4) * range;
       // 尺寸按距离给，保证不同远近的云角大小接近
-      const w = Math.abs(offsetZ) * (0.25 + Math.random() * 0.18);
+      const w = Math.abs(offsetZ) * (0.22 + Math.random() * 0.16);
       cloud.scale.set(w, w * (0.42 + Math.random() * 0.16), 1);
-      cloud.position.set(x, 45 + Math.random() * 60, offsetZ);
+      cloud.position.set(x, 52 + Math.random() * 40, offsetZ);
       world.scene.add(cloud);
       world.clouds.push({ mesh: cloud, offsetZ });
     }
