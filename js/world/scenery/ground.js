@@ -11,8 +11,8 @@
     grass.colorSpace = THREE.SRGBColorSpace;
     grass.wrapS = THREE.RepeatWrapping;
     grass.wrapT = THREE.RepeatWrapping;
-    grass.repeat.set(36, 126); // 一格约 7 个单位
-    grass.anisotropy = Math.min(8, maxAniso);
+    grass.repeat.set(24, 84); // 一格约 11 个单位
+    grass.anisotropy = Math.min(4, maxAniso);
 
     const lawn = new THREE.Mesh(
       new THREE.PlaneGeometry(260, 900),
