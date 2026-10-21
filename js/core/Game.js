@@ -14,7 +14,7 @@
     MusicNotes,
     MelodyGuide,
     Sparks,
-    DreamScreen,
+    DreamPhoto,
     FlightController,
     ScoreSystem,
     CaptionSystem,
@@ -61,8 +61,8 @@
       this.guide.build(this.notes);
       this.sparks = new Sparks(this.world.scene);
 
-      // 结尾用：铺满屏幕的记忆画面
-      this.dreamScreen = new DreamScreen(this.world.scene, this.world.camera);
+      // 结尾用：平铺在步道尽头的那张照片
+      this.dreamPhoto = new DreamPhoto(this.world.scene);
 
       this.ui = {
         hud: new Hud(),
@@ -245,8 +245,7 @@
       this.input.release();
 
       this.sparks.clear();
-      this.dreamScreen.reset();
-      this.world.setSceneryVisible(true);
+      this.dreamPhoto.reset();
       this.plane.visible = false;
       this.plane.reset(0, 2.35, 0, 1);
 

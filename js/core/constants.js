@@ -106,19 +106,43 @@ window.PP = window.PP || {};
   /** 场景中可飞行的横向边界 */
   const FLIGHT_X_LIMIT = 4.1;
 
-  /** 结尾：全屏记忆画面 + 纸飞机穿越 */
-  const DREAM_SCREEN = {
-    /** 画面所在的相机空间距离（越大，纸飞机飞得越久才穿过去） */
-    distance: 16,
-    /** 清晰图占视口的比例（contain，完整显示不裁切） */
-    subjectScale: 0.96,
-    /** 画面淡入时长（秒） */
-    fadeIn: 1.3,
-    /** 穿越动画在整段结尾里的进度区间（0–1） */
-    moveStart: 0.12,
-    moveEnd: 0.6,
-    /** 穿越后继续飞到的相机空间坐标（x 会自动取反，从另一侧穿出） */
-    exit: { x: 2.6, y: 3.0, depth: 6 },
+  /**
+   * 步道中心线：z → x。
+   * 步道本身和结尾那张照片都用它，照片才会正落在路上而不是偏到草里。
+   */
+  const pathCenterX = (z) => 1.65 * Math.sin(-z * 0.008) + 0.48 * Math.sin(-z * 0.023);
+
+  /** 结尾：平铺在步道尽头的一张照片，飞机掠过它飞向天空 */
+  const DREAM_PHOTO = {
+    /** 照片铺在飞机前方多远的路上 */
+    ahead: 34,
+    /** 照片宽度（进深按图片比例算） */
+    width: 10,
+    /** 离地高度，避免和路面 z-fighting */
+    lift: 0.04,
+    /** 淡入时长（秒） */
+    fadeIn: 1.6,
+    /** 相机最后停在照片后方多远、多高（要俯视才看得清平铺的画面） */
+    camStop: 15,
+    camHeight: 12.5,
+    /** 相机推近所用的进度区间（0–1，对应整段结尾） */
+    dolly: [0, 0.7],
+    /** 视线在照片上方抬高多少：把照片压到画面下三分之一，避免前景大片空路面 */
+    lookLift: 2.2,
+    /**
+     * 飞机航线：相对照片中心的偏移 [dx, y, dz]。
+     * dz 为正表示在照片后方（靠相机一侧）。中间两点刻意压得很低，
+     * 让飞机真的贴着照片表面横掠过去，而不是从上方飘过。
+     */
+    path: [
+      [-1.2, 2.5, 12],
+      [1.2, 1.4, 2],
+      [4.2, 1.5, -3],
+      [6.8, 7, -10],
+      [9, 24, -17],
+    ],
+    /** 飞机走完这条航线的进度区间 */
+    fly: [0.08, 0.9],
   };
 
   /**
@@ -178,6 +202,7 @@ window.PP = window.PP || {};
   PP.NOTE_MAX_SCORE = NOTE_MAX_SCORE;
   PP.STEER = STEER;
   PP.FLIGHT_X_LIMIT = FLIGHT_X_LIMIT;
-  PP.DREAM_SCREEN = DREAM_SCREEN;
+  PP.DREAM_PHOTO = DREAM_PHOTO;
+  PP.pathCenterX = pathCenterX;
   PP.CAPTIONS = CAPTIONS;
 })(window.PP);

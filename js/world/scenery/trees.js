@@ -32,7 +32,9 @@
   }
 
   function createTrees(world) {
-    for (let i = 0; i < 34; i++) {
+    // 树列要盖住整段飞行（75 秒 × 8.5 ≈ 640 单位）再加上结尾那一段，
+    // 否则片尾的飞机与照片会落在光秃秃的荒地上。
+    for (let i = 0; i < 48; i++) {
       const z = 8 - i * 18.5;
       const gap = i < 4 ? 11 : 13;
       createTree(world, -gap - (i % 3) * 1.1, z, 0.82 + (i % 4) * 0.12);

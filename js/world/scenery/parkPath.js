@@ -1,5 +1,7 @@
 /** 公园步道：一条缓缓蜿蜒的石板路，贯穿整片草坪。 */
 (function (PP) {
+  const { pathCenterX: centerX } = PP;
+
   function createParkPath(world) {
     const steps = 300;
     const zStart = 14;
@@ -8,7 +10,6 @@
 
     const positions = [];
     const indices = [];
-    const centerX = (z) => 1.65 * Math.sin(-z * 0.008) + 0.48 * Math.sin(-z * 0.023);
     const leftPts = [];
     const rightPts = [];
 

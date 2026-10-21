@@ -26,11 +26,17 @@
       opacity: 0.25,
       depthWrite: false,
     });
-    for (let i = 0; i < 9; i++) {
+
+    // 云不跟世界走，而是跟着相机在 z 上平移（见 World.followCamera）：
+    // 否则飞到片尾时云早就在身后了，天空只剩一条空渐变。
+    world.clouds = [];
+    for (let i = 0; i < 11; i++) {
       const cloud = new THREE.Mesh(new THREE.SphereGeometry(1, 12, 8), cloudMat);
       cloud.scale.set(7 + Math.random() * 6, 0.18 + Math.random() * 0.13, 0.8);
-      cloud.position.set(-38 + Math.random() * 76, 12 + Math.random() * 12, -100 - Math.random() * 220);
+      const offsetZ = -72 - Math.random() * 165;
+      cloud.position.set(-52 + Math.random() * 104, 28 + Math.random() * 18, offsetZ);
       world.scene.add(cloud);
+      world.clouds.push({ mesh: cloud, offsetZ });
     }
 
     return { sun, sunGlow };

@@ -1,18 +1,21 @@
 /**
  * 告别阶段（结尾）
  * ---------------------------------------------------------------
- * 最后两句「再靠近一点」：
+ * 最后几句「再靠近一点」：
  *   1. 音符与引导线消失
- *   2. 孩子打盹的那张画面铺满屏幕
- *   3. 纸飞机斜着飞过去，穿过画面，消失在画里
+ *   2. 步道尽头浮出一张照片——孩子趴在草地上打盹的那张
+ *   3. 相机缓缓推向照片，纸飞机从远处飞过来，划过照片，抬升飞进天空
  *   4. 曲终，结算
  *
- * 这里接管了相机与纸飞机的运动（不再走 FlightController 的告别逻辑），
- * 因为这一段的构图需要可控：相机定住，飞机沿"相机空间"里的直线穿过画面。
+ * 这一段接管了相机与纸飞机的运动：照片是世界里的实体，相机和航线都以它为准，
+ * 所以不管玩家最后飞在哪、镜头朝哪，构图都能对上。
  */
 (function (PP) {
-  const { clamp, smooth } = PP;
-  const { SONG_DURATION, DREAM_SCREEN } = PP;
+  const { clamp, smooth, DREAM_PHOTO } = PP;
+  const { SONG_DURATION } = PP;
+
+  const FORWARD = new THREE.Vector3(0, 0, -1);
+  const UP = new THREE.Vector3(0, 1, 0);
 
   class FarewellPhase {
     constructor(game) {
@@ -22,44 +25,43 @@
     enter() {
       const { game } = this;
       this.t0 = game.audio.currentTime;
-      this.sceneryHidden = false;
 
       // 音符、引导线消失——画面留给那段回忆
       game.notes.hideAll();
       game.guide.visible = false;
 
-      // 全屏记忆画面浮现
-      game.dreamScreen.show();
-
-      // 定住相机，把飞机换算到相机坐标系，之后的构图就完全可控
       const cam = game.world.camera;
-      this.camPos = cam.position.clone();
-      this.camQuat = cam.quaternion.clone();
-      cam.updateMatrixWorld(true);
+      const plane = game.plane;
 
-      this.from = cam.worldToLocal(game.plane.position.clone());
-      // 兜底：万一开始时飞机已经在画面之后（相机被外力挪动等），把它拉到画面前面来
-      const minFront = -(DREAM_SCREEN.distance - 3.5);
-      if (this.from.z < minFront) this.from.z = minFront;
+      // 照片立在步道尽头
+      const photoZ = plane.position.z - DREAM_PHOTO.ahead;
+      game.dreamPhoto.place(photoZ);
+      game.dreamPhoto.show();
+      const c = game.dreamPhoto.center;
 
-      // 玩家可能正飞在通道最边上，把起点夹进可视范围，保证穿越从画面内开始
-      const depth = Math.max(1, Math.abs(this.from.z));
-      const halfH = depth * Math.tan((cam.fov * Math.PI) / 360);
-      const halfW = halfH * cam.aspect;
-      this.from.x = Math.max(-halfW * 0.5, Math.min(halfW * 0.5, this.from.x));
-      this.from.y = Math.max(-halfH * 0.5, Math.min(halfH * 0.5, this.from.y));
+      // 相机：从当前位置推到照片前方
+      this.camFrom = cam.position.clone();
+      this.camTo = new THREE.Vector3(c.x, DREAM_PHOTO.camHeight, c.z + DREAM_PHOTO.camStop);
 
-      // 从另一侧斜着穿出去，画面里才会留下一道明显的斜光，而不是原地往深处钻
-      const exitX = (this.from.x >= 0 ? -1 : 1) * DREAM_SCREEN.exit.x;
+      // 起始视线：沿当前朝向取一个远点，避免第一帧突然扭头
+      const dir = new THREE.Vector3();
+      cam.getWorldDirection(dir);
+      this.lookFrom = cam.position.clone().addScaledVector(dir, 40);
 
-      this.to = new THREE.Vector3(
-        exitX,
-        DREAM_SCREEN.exit.y,
-        -(DREAM_SCREEN.distance + DREAM_SCREEN.exit.depth)
-      );
-      this.dir = this.to.clone().sub(this.from).normalize();
+      // 飞机航线：从当前位置 → 逼近 → 划过照片 → 抬升入空
+      const points = [plane.position.clone()];
+      for (const [dx, y, dz] of DREAM_PHOTO.path) {
+        points.push(new THREE.Vector3(c.x + dx, y, c.z + dz));
+      }
+      this.curve = new THREE.CatmullRomCurve3(points, false, 'catmullrom', 0.4);
+      this.curve.arcLengthDivisions = 240;
 
-      game.ui.toast.show('穿过这段午后');
+      this.tangent = new THREE.Vector3();
+      this.look = new THREE.Vector3();
+      this.aim = new THREE.Vector3();
+      this.moteTimer = 0;
+
+      game.ui.toast.show('再靠近一点');
     }
 
     update(dt, songTime) {
@@ -68,33 +70,51 @@
       const span = Math.max(0.001, SONG_DURATION - this.t0);
       const p = clamp((time - this.t0) / span, 0, 1);
 
-      // 相机定住（画面挂在它身上，本来也不受影响，这样构图最稳）
       const cam = game.world.camera;
-      cam.position.copy(this.camPos);
-      cam.quaternion.copy(this.camQuat);
+      const plane = game.plane;
+      const center = game.dreamPhoto.center;
+
+      // --- 相机：缓缓推近 ---
+      const dolly = smooth(DREAM_PHOTO.dolly[0], DREAM_PHOTO.dolly[1], p);
+      cam.position.lerpVectors(this.camFrom, this.camTo, dolly);
+
+      // 视线：先稳住，再落到照片上，最后跟着飞机抬头看天空
+      this.aim.copy(center);
+      this.aim.y += DREAM_PHOTO.lookLift;
+      this.look.copy(this.lookFrom).lerp(this.aim, smooth(0, 0.24, p));
+      this.look.lerp(plane.position, smooth(0.42, 0.8, p) * 0.92);
+      cam.lookAt(this.look);
       cam.updateMatrixWorld(true);
 
-      // 纸飞机沿直线穿过画面
-      const k = smooth(DREAM_SCREEN.moveStart, DREAM_SCREEN.moveEnd, p);
-      const local = this.from.clone().lerp(this.to, k);
-      // 先记住相机空间里的 z，applyMatrix4 会就地改成世界坐标
-      const localZ = local.z;
-      const world = local.applyMatrix4(cam.matrixWorld);
-      game.plane.position.copy(world);
+      // --- 飞机：沿曲线划过照片再入空 ---
+      const u = smooth(DREAM_PHOTO.fly[0], DREAM_PHOTO.fly[1], p);
+      this.curve.getPointAt(u, plane.position);
+      this.curve.getTangentAt(u, this.tangent);
 
-      // 朝向：机头对准前进方向，略微上扬
-      game.plane.group.rotation.set(-0.08, Math.atan2(-this.dir.x, -this.dir.z), 0);
+      // 机头对准切线（模型机头是 -Z），再按横向分量加一点侧倾
+      plane.group.quaternion.setFromUnitVectors(FORWARD, this.tangent);
+      plane.group.rotateZ(clamp(-this.tangent.x, -1, 1) * 0.35);
 
-      // 穿过画面之后收起来，别在后面闪
-      game.plane.visible = localZ > -DREAM_SCREEN.distance;
-
-      game.dreamScreen.update(dt);
-
-      // 画面完全铺满后收起公园布景，否则地面会在深度上挡住画面下缘
-      if (!this.sceneryHidden && game.dreamScreen.opacity > 0.995) {
-        game.world.setSceneryVisible(false);
-        this.sceneryHidden = true;
+      // --- 光尘：从照片表面缓缓升起 ---
+      this.moteTimer -= dt;
+      if (this.moteTimer <= 0 && game.dreamPhoto.opacity > 0.35) {
+        this.moteTimer = 0.22;
+        game.sparks.emit(
+          new THREE.Vector3(
+            center.x + (Math.random() - 0.5) * DREAM_PHOTO.width * 1.05,
+            0.15 + Math.random() * 0.4,
+            center.z + (Math.random() - 0.5) * game.dreamPhoto.depth * 1.1
+          ),
+          new THREE.Vector3(
+            (Math.random() - 0.5) * 0.2,
+            0.5 + Math.random() * 0.55,
+            (Math.random() - 0.5) * 0.2
+          ),
+          1.5 + Math.random() * 0.9
+        );
       }
+
+      game.dreamPhoto.update(dt);
 
       if (time > SONG_DURATION - 0.15 && game.hasAudioEnded()) game.finish();
     }
