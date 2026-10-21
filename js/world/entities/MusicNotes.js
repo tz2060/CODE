@@ -8,6 +8,7 @@
   const { clamp } = PP;
   const {
     COLLISION_RADII,
+    PLANE_HIT_SKIN,
     FAR_END,
     LAUNCH,
     NOTE_COUNT,
@@ -128,18 +129,31 @@
     }
 
     /**
-     * 椭球碰撞检测：越靠近音符中心得分越高。
+     * 椭球碰撞检测：纸飞机给出若干采样点，**任一点**落入椭球即算命中；
+     * 距离取最近的那个点，所以越靠近音符中心得分越高。
+     * @param {THREE.Vector3[]} points 纸飞机的判定采样点（世界坐标）
      * @returns {{note: object, distance: number}[]}
      */
-    findHits(position) {
+    findHits(points) {
       const hits = [];
+      const reach = 1 + PLANE_HIT_SKIN;
+      const reachSq = reach * reach;
+
       for (const note of this.items) {
         if (note.hit || !note.sprite.visible) continue;
-        const dx = (position.x - note.sprite.position.x) / COLLISION_RADII.x;
-        const dy = (position.y - note.sprite.position.y) / COLLISION_RADII.y;
-        const dz = (position.z - note.sprite.position.z) / COLLISION_RADII.z;
-        const distance = Math.sqrt(dx * dx + dy * dy + dz * dz);
-        if (distance < 1) hits.push({ note, distance });
+        const np = note.sprite.position;
+
+        let best = Infinity;
+        for (let i = 0; i < points.length; i++) {
+          const p = points[i];
+          const dx = (p.x - np.x) / COLLISION_RADII.x;
+          const dy = (p.y - np.y) / COLLISION_RADII.y;
+          const dz = (p.z - np.z) / COLLISION_RADII.z;
+          const d = dx * dx + dy * dy + dz * dz; // 先比平方，省掉内层开方
+          if (d < best) best = d;
+        }
+
+        if (best < reachSq) hits.push({ note, distance: Math.sqrt(best) });
       }
       return hits;
     }

@@ -30,7 +30,8 @@
      */
     check(plane, notes) {
       if (!plane.visible) return;
-      const hits = notes.findHits(plane.position);
+      // 拿机身外轮廓的采样点，而不是只拿原点
+      const hits = notes.findHits(plane.getHitPoints());
       for (const { note, distance } of hits) {
         note.hit = true;
         const points = Math.max(1, Math.round(NOTE_MAX_SCORE * (1 - distance)));

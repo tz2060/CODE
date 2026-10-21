@@ -6,7 +6,7 @@
  */
 (function (PP) {
   const { damp, clamp, lerp } = PP;
-  const { PLANE_NOSE_UP, PLANE_YAW } = PP;
+  const { PLANE_NOSE_UP, PLANE_YAW, PLANE_HIT_POINTS } = PP;
 
   class PaperPlane {
     constructor(scene) {
@@ -16,10 +16,29 @@
       this.lastX = 0;
       this.lastY = 2.35;
 
+      /** 判定采样点的世界坐标，预分配避免每帧新建 */
+      this.hitPoints = PLANE_HIT_POINTS.map(() => new THREE.Vector3());
+
       this.#build();
       this.group.position.set(0, 2.35, 0);
       this.group.visible = false;
       scene.add(this.group);
+    }
+
+    /**
+     * 机身外轮廓的判定采样点（世界坐标）。
+     * 碰撞检测不再只看机身原点，而是拿这一圈点去和音符的椭球比，
+     * 所以机头先碰到、翼尖蹭到都算命中。
+     */
+    getHitPoints() {
+      // 渲染器要到 render 时才更新矩阵，这里先自己算一次，避免慢一帧
+      this.group.updateMatrixWorld();
+      const m = this.group.matrixWorld;
+      for (let i = 0; i < PLANE_HIT_POINTS.length; i++) {
+        const p = PLANE_HIT_POINTS[i];
+        this.hitPoints[i].set(p[0], p[1], p[2]).applyMatrix4(m);
+      }
+      return this.hitPoints;
     }
 
     #build() {

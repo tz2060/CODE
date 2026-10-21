@@ -68,6 +68,30 @@ window.PP = window.PP || {};
   /** 音符碰撞椭球半径（越大越好接） */
   const COLLISION_RADII = { x: 1.35, y: 0.78, z: 1.35 };
 
+  /**
+   * 纸飞机的判定采样点（局部坐标，沿机身外轮廓取 7 点）。
+   * 纸飞机不是一个点：机头、两侧翼尖、翼缘中点、后缘都参与判定，
+   * 这样用机翼蹭到音符也算命中，而不是只有机身原点那一点算数。
+   * 坐标与 PaperPlane 的顶点一一对应（机头指向 -Z）。
+   */
+  const PLANE_HIT_POINTS = [
+    [0, 0.035, -1.16], // 机头
+    [-0.62, 0.08, -0.29], // 左翼前缘中点
+    [0.62, 0.08, -0.29], // 右翼前缘中点
+    [-1.24, 0.12, 0.58], // 左翼尖
+    [1.24, 0.12, 0.58], // 右翼尖
+    [-0.18, 0.08, 0.83], // 左后缘
+    [0.18, 0.08, 0.83], // 右后缘
+  ];
+
+  /**
+   * 采样点的额外膨胀（归一化单位）。
+   * 默认 0：相邻采样点在归一化空间里只隔约 0.79，半径 1 的椭球本就互相重叠，不会漏判。
+   * 调大会更宽容，但要注意算分公式是 `1 - distance`——膨胀后命中距离常驻在 1 附近，
+   * 得分会被压到 1 分，所以不建议大于 0.05。
+   */
+  const PLANE_HIT_SKIN = 0;
+
   /** 单个音符的最高分（正中心命中） */
   const NOTE_MAX_SCORE = 100;
 
@@ -153,6 +177,8 @@ window.PP = window.PP || {};
   PP.TRANSFORM_DURATION = TRANSFORM_DURATION;
   PP.FAREWELL_LINGER = FAREWELL_LINGER;
   PP.COLLISION_RADII = COLLISION_RADII;
+  PP.PLANE_HIT_POINTS = PLANE_HIT_POINTS;
+  PP.PLANE_HIT_SKIN = PLANE_HIT_SKIN;
   PP.NOTE_MAX_SCORE = NOTE_MAX_SCORE;
   PP.STEER = STEER;
   PP.FLIGHT_X_LIMIT = FLIGHT_X_LIMIT;
