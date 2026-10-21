@@ -23,8 +23,9 @@
       this.skyDome = null;
       this.sunGlow = null;
       this.sunGroup = null;
+      this.sunDir = null;
+      this.sunDist = 0;
       this._sunPos = new THREE.Vector3();
-      this._cloudPos = new THREE.Vector3();
 
       this.renderer = new THREE.WebGLRenderer({
         canvas,
@@ -86,37 +87,34 @@
     followCamera() {
       if (this.skyDome) this.skyDome.position.copy(this.camera.position);
 
-      this.camera.updateMatrixWorld();
-      const tanV = Math.tan((this.camera.fov * Math.PI) / 360);
-      const tanH = tanV * this.camera.aspect;
-
-      // 太阳锁在画面左上角（约 28% 偏左、22% 偏上）：
-      // 按相机 fov / 宽高比换算成相机空间偏移，横竖屏都不会跑出画面。
-      if (this.sunGroup) {
-        const D = 320;
-        this._sunPos.set(-0.44 * tanH * D, 0.56 * tanV * D, -D);
-        this.camera.localToWorld(this._sunPos);
+      // 太阳：固定在相机左上前方的一个世界方向上（距离恒定，大小不随飞行变化）
+      if (this.sunGroup && this.sunDir) {
+        const portrait = this.camera.aspect < 1;
+        // 竖屏水平视角窄：把太阳的水平分量收一点，免得飞出画面
+        const dx = portrait ? this.sunDir.x * 0.5 : this.sunDir.x;
+        this._sunPos
+          .set(dx, this.sunDir.y, this.sunDir.z)
+          .normalize()
+          .multiplyScalar(this.sunDist)
+          .add(this.camera.position);
         this.sunGroup.position.copy(this._sunPos);
+        if (this.sunGlow) {
+          const s = portrait ? 150 : 280;
+          if (this.sunGlow.scale.x !== s) this.sunGlow.scale.set(s, s, 1);
+        }
       }
 
+      // 云：散布在场景里，跟着相机在 z 上平移（避免片尾被甩在身后）
       if (!this.clouds) return;
       for (const cloud of this.clouds) {
-        const c = cloud;
-        // 云高占屏高固定比例，宽按精灵比例算 → 任何屏上云的形状一致
-        const H = c.hFrac * 2 * c.d * tanV;
-        const W = H / c.aspect;
-        c.mesh.scale.set(W, H, 1);
-        // 屏幕归一化坐标 → 相机空间 → 世界坐标
-        this._cloudPos.set(c.fx * tanH * c.d, c.fy * tanV * c.d, -c.d);
-        this.camera.localToWorld(this._cloudPos);
-        c.mesh.position.copy(this._cloudPos);
+        cloud.mesh.position.z = this.camera.position.z + cloud.offsetZ;
       }
     }
 
     /** 光晕随音乐呼吸 */
     pulseSun(audioEnergy, lowEnergy) {
       if (!this.sunGlow) return;
-      const o = 0.78 + audioEnergy * 0.18 + lowEnergy * 0.06;
+      const o = 0.72 + audioEnergy * 0.2 + lowEnergy * 0.06;
       this.sunGlow.material.opacity = Math.min(1, o);
     }
 

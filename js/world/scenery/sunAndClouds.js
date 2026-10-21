@@ -1,9 +1,10 @@
 /**
  * 正午的太阳（放射光线）与蓬松白云。
  * ---------------------------------------------------------------
- * 太阳锁在「相机空间的左上前方」，由 World.followCamera 每帧换算到世界坐标，
- * 因此无论飞机怎么飞，它都稳稳停在画面左上角（参考图里太阳的位置）。
- * 光晕透明度随音乐呼吸，所以把 sunGlow 返回给主循环。
+ * 太阳与云都是「场景里的实体」，不再按屏幕百分比钉死：
+ *  - 太阳固定在相机左上前方的一个**世界方向**上（距离恒定，所以大小不随飞行变化）
+ *  - 云散布在场景里，跟着相机在 z 上平移（避免飞到片尾时被甩在身后）
+ * 太阳光晕随音乐呼吸，所以把 sunGlow 返回给主循环。
  */
 (function (PP) {
   /** 放射状太阳：白色核心 + 星芒 + 柔光晕 */
@@ -15,33 +16,32 @@
     const cx = S / 2;
     const cy = S / 2;
 
-    // 柔光晕：只包住核心一小圈，外面交给离散星芒，
-    // 这样天空保持蓝、射线才是亮点（连续大光晕会把整片天洗白）。
+    // 柔光晕：只包住核心一小圈，外面交给离散星芒
     const halo = ctx.createRadialGradient(cx, cy, 0, cx, cy, S * 0.5);
-    halo.addColorStop(0, 'rgba(255,255,255,0.92)');
-    halo.addColorStop(0.035, 'rgba(255,253,244,0.6)');
-    halo.addColorStop(0.09, 'rgba(255,247,218,0.2)');
-    halo.addColorStop(0.17, 'rgba(255,242,205,0.055)');
-    halo.addColorStop(0.30, 'rgba(255,242,205,0.012)');
+    halo.addColorStop(0, 'rgba(255,255,255,0.82)');
+    halo.addColorStop(0.03, 'rgba(255,253,244,0.45)');
+    halo.addColorStop(0.08, 'rgba(255,247,218,0.14)');
+    halo.addColorStop(0.16, 'rgba(255,242,205,0.04)');
+    halo.addColorStop(0.28, 'rgba(255,242,205,0.008)');
     halo.addColorStop(1, 'rgba(255,242,205,0)');
     ctx.fillStyle = halo;
     ctx.fillRect(0, 0, S, S);
 
-    // 星芒（放射线），加法混合叠在光晕上
+    // 星芒（放射线）：更细、更淡，让蓝色从缝里透出来
     ctx.globalCompositeOperation = 'lighter';
-    const RAYS = 44;
+    const RAYS = 36;
     for (let i = 0; i < RAYS; i++) {
       const ang = (i / RAYS) * Math.PI * 2 + (i % 2 ? 0.015 : -0.01);
       const long = i % 3 === 0;
-      const len = S * (long ? 0.49 : 0.31) * (0.85 + Math.random() * 0.3);
+      const len = S * (long ? 0.49 : 0.3) * (0.85 + Math.random() * 0.3);
       const ex = cx + Math.cos(ang) * len;
       const ey = cy + Math.sin(ang) * len;
       const g = ctx.createLinearGradient(cx, cy, ex, ey);
-      g.addColorStop(0, 'rgba(255,255,255,0.55)');
-      g.addColorStop(0.35, 'rgba(255,250,236,0.2)');
+      g.addColorStop(0, 'rgba(255,255,255,0.4)');
+      g.addColorStop(0.35, 'rgba(255,250,236,0.12)');
       g.addColorStop(1, 'rgba(255,250,236,0)');
       ctx.strokeStyle = g;
-      ctx.lineWidth = S * (long ? 0.012 : 0.006);
+      ctx.lineWidth = S * (long ? 0.009 : 0.0045);
       ctx.beginPath();
       ctx.moveTo(cx, cy);
       ctx.lineTo(ex, ey);
@@ -52,7 +52,7 @@
     ctx.globalCompositeOperation = 'source-over';
     const core = ctx.createRadialGradient(cx, cy, 0, cx, cy, S * 0.05);
     core.addColorStop(0, 'rgba(255,255,255,1)');
-    core.addColorStop(0.55, 'rgba(255,255,255,0.92)');
+    core.addColorStop(0.55, 'rgba(255,255,255,0.9)');
     core.addColorStop(1, 'rgba(255,255,255,0)');
     ctx.fillStyle = core;
     ctx.beginPath();
@@ -76,9 +76,9 @@
     const blobs = 18;
     for (let i = 0; i < blobs; i++) {
       const t = i / (blobs - 1);
-      const bx = W * (0.1 + 0.8 * t) + (Math.random() - 0.5) * W * 0.07;
-      const by = H * (0.58 + (Math.random() - 0.5) * 0.24) - Math.sin(t * Math.PI) * H * 0.2;
-      const br = H * (0.15 + Math.random() * 0.2);
+      const bx = W * (0.12 + 0.76 * t) + (Math.random() - 0.5) * W * 0.06;
+      const by = H * (0.58 + (Math.random() - 0.5) * 0.22) - Math.sin(t * Math.PI) * H * 0.18;
+      const br = H * (0.14 + Math.random() * 0.18);
       const g = ctx.createRadialGradient(bx, by, 0, bx, by, br);
       g.addColorStop(0, 'rgba(255,255,255,0.95)');
       g.addColorStop(0.55, 'rgba(252,253,255,0.6)');
@@ -89,13 +89,33 @@
       ctx.fill();
     }
 
+    // 关键：把四条边羽化到 0。否则画布边缘的团块被硬裁断，
+    // 精灵方块的直边就会露出来（之前截图里那些方块就是这么来的）。
+    ctx.globalCompositeOperation = 'destination-in';
+    const mx = ctx.createLinearGradient(0, 0, W, 0);
+    mx.addColorStop(0, 'rgba(0,0,0,0)');
+    mx.addColorStop(0.07, 'rgba(0,0,0,1)');
+    mx.addColorStop(0.93, 'rgba(0,0,0,1)');
+    mx.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = mx;
+    ctx.fillRect(0, 0, W, H);
+
+    const my = ctx.createLinearGradient(0, 0, 0, H);
+    my.addColorStop(0, 'rgba(0,0,0,0)');
+    my.addColorStop(0.1, 'rgba(0,0,0,1)');
+    my.addColorStop(0.9, 'rgba(0,0,0,1)');
+    my.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = my;
+    ctx.fillRect(0, 0, W, H);
+    ctx.globalCompositeOperation = 'source-over';
+
     const tex = new THREE.CanvasTexture(canvas);
     tex.colorSpace = THREE.SRGBColorSpace;
     return tex;
   }
 
   function createSunAndClouds(world) {
-    // ---- 太阳：放射光线，锁在相机空间左上前方 ----
+    // ---- 太阳：固定在相机左上前方的一个世界方向上 ----
     const sunGroup = new THREE.Group();
     world.scene.add(sunGroup);
 
@@ -103,45 +123,50 @@
       new THREE.SpriteMaterial({
         map: makeSunTexture(),
         transparent: true,
-        opacity: 0.9,
+        opacity: 0.75,
         depthWrite: false,
         fog: false,
         blending: THREE.AdditiveBlending,
         toneMapped: false,
       })
     );
-    sunGlow.scale.set(330, 330, 1);
+    sunGlow.scale.set(280, 280, 1);
     sunGroup.add(sunGlow);
 
-    // 位置不在这里定死：World.followCamera 会按相机 fov / 宽高比，
-    // 每帧把太阳换算到「画面左上约 28% / 22%」处，横竖屏都不会跑出画面。
+    // 方向：左、上、前；距离恒定 → 飞行中大小不变
+    // 仰角约 9°：飞机飞低时相机会俯视 ~16°，留出余量免得太阳被顶出画面
+    world.sunDir = new THREE.Vector3(-0.4, 0.16, -0.9).normalize();
+    world.sunDist = 540;
     world.sunGroup = sunGroup;
 
-    // ---- 白云：精灵（永远正对相机） ----
-    // 位置用「屏幕归一化坐标」存，followCamera 每帧按 fov/aspect 换算成世界坐标：
-    // 这样横屏 / 竖屏都能保证云落在可见天空里，不会因竖屏窄视角被裁掉。
+    // ---- 白云：散布在场景里，跟着相机在 z 上平移 ----
     const cloudTexes = [makeCloudTexture(), makeCloudTexture(), makeCloudTexture()];
     world.clouds = [];
 
-    for (let i = 0; i < 14; i++) {
+    for (let i = 0; i < 18; i++) {
       const cloud = new THREE.Sprite(
         new THREE.SpriteMaterial({
           map: cloudTexes[i % cloudTexes.length],
           transparent: true,
-          opacity: 0.92,
+          opacity: 0.88,
           depthWrite: false,
           fog: false,
           toneMapped: false,
           color: 0xffffff,
         })
       );
-      const d = 180 + Math.random() * 240; // 离相机距离
-      const fx = -0.92 + Math.random() * 1.87; // 屏幕水平 -0.92..0.95
-      const fy = 0.28 + Math.random() * 0.57; // 屏幕垂直 0.28..0.85（天空带）
-      const hFrac = 0.1 + Math.random() * 0.08; // 云高约占屏高 10%~18%
-      const aspect = 0.42 + Math.random() * 0.16; // 高 / 宽
+      const offsetZ = -170 - Math.random() * 250;
+      // x 向中间聚一些（竖屏窄视角也能看到几朵），少量放到更外侧铺满横屏
+      const far = Math.random() < 0.3;
+      const range = far ? 340 : 180;
+      const sign = Math.random() < 0.5 ? -1 : 1;
+      const x = sign * Math.pow(Math.random(), 1.4) * range;
+      // 尺寸按距离给，保证不同远近的云角大小接近
+      const w = Math.abs(offsetZ) * (0.25 + Math.random() * 0.18);
+      cloud.scale.set(w, w * (0.42 + Math.random() * 0.16), 1);
+      cloud.position.set(x, 45 + Math.random() * 60, offsetZ);
       world.scene.add(cloud);
-      world.clouds.push({ mesh: cloud, d, fx, fy, hFrac, aspect });
+      world.clouds.push({ mesh: cloud, offsetZ });
     }
 
     return { sunGlow, sunGroup };
