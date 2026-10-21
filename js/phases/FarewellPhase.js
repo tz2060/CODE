@@ -3,19 +3,19 @@
  * ---------------------------------------------------------------
  * 最后几句「再靠近一点」：
  *   1. 音符与引导线消失
- *   2. 步道尽头浮出一张照片——孩子趴在草地上打盹的那张
- *   3. 相机缓缓推向照片，纸飞机从远处飞过来，划过照片，抬升飞进天空
+ *   2. 一张照片浮现在镜头正前方（camera-facing，永远正对镜头）
+ *   3. 纸飞机从近处升起，掠过照片、飞进天空
  *   4. 曲终，结算
  *
- * 这一段接管了相机与纸飞机的运动：照片是世界里的实体，相机和航线都以它为准，
- * 所以不管玩家最后飞在哪、镜头朝哪，构图都能对上。
+ * 这一段接管了相机与纸飞机的运动：相机停在飞行结束时的位置不再移动，
+ * 照片挂到相机上做「浮在正前方」的浮图；飞机沿一条镜头空间里的曲线，
+ * 从当前位置平滑接管、升起、越过照片、飞向天空。
  */
 (function (PP) {
   const { clamp, smooth, DREAM_PHOTO } = PP;
   const { SONG_DURATION } = PP;
 
   const FORWARD = new THREE.Vector3(0, 0, -1);
-  const UP = new THREE.Vector3(0, 1, 0);
 
   class FarewellPhase {
     constructor(game) {
@@ -33,33 +33,42 @@
       const cam = game.world.camera;
       const plane = game.plane;
 
-      // 照片立在步道尽头
-      const photoZ = plane.position.z - DREAM_PHOTO.ahead;
-      game.dreamPhoto.place(photoZ);
-      game.dreamPhoto.show();
-      const c = game.dreamPhoto.center;
+      // 相机停在飞行结束时的姿态，不再移动——照片与航线都以它为基准
+      cam.updateMatrixWorld(true);
 
-      // 相机：从当前位置推到照片前方
-      this.camFrom = cam.position.clone();
-      this.camTo = new THREE.Vector3(c.x, DREAM_PHOTO.camHeight, c.z + DREAM_PHOTO.camStop);
+      // 照片：按相机的位置/朝向摆到正前方固定距离处，并转向正对相机
+      // （相机静止，摆一次即可；相机没被加入场景图，所以照片是场景里的实体而非相机子节点）
+      const photo = game.dreamPhoto;
+      const fov = (cam.fov * Math.PI) / 180;
+      const visH = 2 * DREAM_PHOTO.distance * Math.tan(fov / 2);
+      const visW = visH * cam.aspect;
+      const width = Math.min(DREAM_PHOTO.width, visW * DREAM_PHOTO.fit);
+      photo.setSize(width);
+      photo.place(cam);
+      photo.show();
 
-      // 起始视线：沿当前朝向取一个远点，避免第一帧突然扭头
-      const dir = new THREE.Vector3();
-      cam.getWorldDirection(dir);
-      this.lookFrom = cam.position.clone().addScaledVector(dir, 40);
-
-      // 飞机航线：从当前位置 → 逼近 → 划过照片 → 抬升入空
-      const points = [plane.position.clone()];
-      for (const [dx, y, dz] of DREAM_PHOTO.path) {
-        points.push(new THREE.Vector3(c.x + dx, y, c.z + dz));
-      }
-      this.curve = new THREE.CatmullRomCurve3(points, false, 'catmullrom', 0.4);
+      // 飞机航线：镜头空间里，从「当前位置」平滑接管，再升起越过照片、飞进天空。
+      // 照片摆好后取它在镜头空间的位置、按实际顶边规划航线，保证一定从照片上方掠过。
+      const start = cam.worldToLocal(plane.position.clone());
+      const photoLocal = cam.worldToLocal(photo.group.position.clone());
+      const top = photoLocal.y + photo.height / 2; // 照片顶（镜头空间 Y）
+      const D = DREAM_PHOTO.distance;
+      this.curve = new THREE.CatmullRomCurve3(
+        [
+          start,
+          new THREE.Vector3(0, Math.max(1, top * 0.4), -D * 0.68),
+          new THREE.Vector3(0, top + 1.4, -D),
+          new THREE.Vector3(0, top + 7, -D * 1.8),
+          new THREE.Vector3(0, top + 16, -D * 2.5),
+        ],
+        false,
+        'catmullrom',
+        0.4
+      );
       this.curve.arcLengthDivisions = 240;
 
       this.tangent = new THREE.Vector3();
-      this.look = new THREE.Vector3();
-      this.aim = new THREE.Vector3();
-      this.moteTimer = 0;
+      this.local = new THREE.Vector3();
 
       game.ui.toast.show('再靠近一点');
     }
@@ -72,54 +81,29 @@
 
       const cam = game.world.camera;
       const plane = game.plane;
-      const center = game.dreamPhoto.center;
 
-      // --- 相机：缓缓推近 ---
-      const dolly = smooth(DREAM_PHOTO.dolly[0], DREAM_PHOTO.dolly[1], p);
-      cam.position.lerpVectors(this.camFrom, this.camTo, dolly);
+      // 相机静止：这一帧什么都不用做
 
-      // 视线：先稳住，再落到照片上，最后跟着飞机抬头看天空
-      this.aim.copy(center);
-      this.aim.y += DREAM_PHOTO.lookLift;
-      this.look.copy(this.lookFrom).lerp(this.aim, smooth(0, 0.24, p));
-      this.look.lerp(plane.position, smooth(0.42, 0.8, p) * 0.92);
-      cam.lookAt(this.look);
-      cam.updateMatrixWorld(true);
-
-      // --- 飞机：沿曲线划过照片再入空 ---
+      // 飞机：沿镜头空间曲线走，再变换到世界坐标
       const u = smooth(DREAM_PHOTO.fly[0], DREAM_PHOTO.fly[1], p);
-      this.curve.getPointAt(u, plane.position);
+      this.curve.getPointAt(u, this.local);
+      cam.localToWorld(this.local);
+      plane.position.copy(this.local);
+
       this.curve.getTangentAt(u, this.tangent);
-
-      // 机头对准切线（模型机头是 -Z），再按横向分量加一点侧倾
+      this.tangent.applyQuaternion(cam.quaternion).normalize();
       plane.group.quaternion.setFromUnitVectors(FORWARD, this.tangent);
-      plane.group.rotateZ(clamp(-this.tangent.x, -1, 1) * 0.35);
-
-      // --- 光尘：从照片表面缓缓升起 ---
-      this.moteTimer -= dt;
-      if (this.moteTimer <= 0 && game.dreamPhoto.opacity > 0.35) {
-        this.moteTimer = 0.22;
-        game.sparks.emit(
-          new THREE.Vector3(
-            center.x + (Math.random() - 0.5) * DREAM_PHOTO.width * 1.05,
-            0.15 + Math.random() * 0.4,
-            center.z + (Math.random() - 0.5) * game.dreamPhoto.depth * 1.1
-          ),
-          new THREE.Vector3(
-            (Math.random() - 0.5) * 0.2,
-            0.5 + Math.random() * 0.55,
-            (Math.random() - 0.5) * 0.2
-          ),
-          1.5 + Math.random() * 0.9
-        );
-      }
 
       game.dreamPhoto.update(dt);
 
       if (time > SONG_DURATION - 0.15 && game.hasAudioEnded()) game.finish();
     }
 
-    exit() {}
+    exit() {
+      // 把照片从相机上摘下来，避免重开时残留
+      const { game } = this;
+      game.dreamPhoto.reset();
+    }
   }
 
   PP.FarewellPhase = FarewellPhase;

@@ -61,7 +61,7 @@
       this.guide.build(this.notes);
       this.sparks = new Sparks(this.world.scene);
 
-      // 结尾用：平铺在步道尽头的那张照片
+      // 结尾用：浮在镜头正前方的那张照片
       this.dreamPhoto = new DreamPhoto(this.world.scene);
 
       this.ui = {
