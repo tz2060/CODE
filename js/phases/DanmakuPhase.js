@@ -17,6 +17,8 @@
       game.notes.hideAll();
       game.guide.visible = false;
       game.plane.visible = false;
+      // 第二关开始：第一关的音乐必须关掉，只留音效
+      game.audio.stop();
 
       const d = game.danmaku;
       d.reset();

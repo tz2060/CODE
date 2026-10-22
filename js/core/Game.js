@@ -65,7 +65,11 @@
       window.addEventListener('keydown', unlockAudio, { once: true });
 
       // 被自动播放策略拦下后：之后任意一次点击 / 触摸都再试一次播放
-      const retryAudio = () => this.audio.retryPlay();
+      const retryAudio = () => {
+        // 第二关 / 结算里音乐是主动关掉的，别又被点起来
+        if (this.state === GameState.DANMAKU || this.state === GameState.ENDED) return;
+        this.audio.retryPlay();
+      };
       window.addEventListener('click', retryAudio, { passive: true });
       window.addEventListener('touchend', retryAudio, { passive: true });
       // 微信内置浏览器：桥就绪后再解锁一次

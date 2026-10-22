@@ -40,6 +40,7 @@
       this.element.load();
 
       this.muted = false;
+      this.stopped = false;
       this.context = null;
       this.analyser = null;
       this.sourceNode = null;
@@ -131,6 +132,7 @@
 
     /** 开始播放（从 0 开始） */
     play() {
+      this.stopped = false;
       this.ensureGraph();
       if (this.context && this.context.state === 'suspended') {
         this.context.resume().catch(() => {});
@@ -167,6 +169,7 @@
      */
     retryPlay() {
       if (this.muted) return;
+      if (this.stopped) return; // 已被游戏主动关掉（如进入第二关），不要再放起来
       if (!this.element.paused) return;
       this.ensureGraph();
       if (this.context && this.context.state === 'suspended') {
@@ -177,6 +180,7 @@
     }
 
     stop() {
+      this.stopped = true;
       try {
         this.element.pause();
         this.element.currentTime = 0;
@@ -216,19 +220,19 @@
       };
 
       if (type === 'shoot') {
-        blip(920, 'triangle', t0, 0.05, 0.055, 1500);
+        blip(920, 'triangle', t0, 0.05, 0.2, 1500);
       } else if (type === 'graze') {
-        blip(1680, 'sine', t0, 0.07, 0.06, 2100);
+        blip(1680, 'sine', t0, 0.07, 0.22, 2100);
       } else if (type === 'hit') {
-        blip(180, 'sawtooth', t0, 0.26, 0.15, 70);
-        blip(90, 'sine', t0, 0.3, 0.11);
+        blip(180, 'sawtooth', t0, 0.26, 0.5, 70);
+        blip(90, 'sine', t0, 0.3, 0.4);
       } else if (type === 'clear') {
-        blip(660, 'triangle', t0, 0.16, 0.09);
-        blip(880, 'triangle', t0 + 0.12, 0.18, 0.09);
-        blip(1320, 'triangle', t0 + 0.24, 0.3, 0.09);
+        blip(660, 'triangle', t0, 0.16, 0.4);
+        blip(880, 'triangle', t0 + 0.12, 0.18, 0.4);
+        blip(1320, 'triangle', t0 + 0.24, 0.3, 0.4);
       } else if (type === 'over') {
-        blip(440, 'sine', t0, 0.28, 0.11, 220);
-        blip(220, 'sine', t0 + 0.18, 0.5, 0.11, 110);
+        blip(440, 'sine', t0, 0.28, 0.45, 220);
+        blip(220, 'sine', t0 + 0.18, 0.5, 0.45, 110);
       }
     }
 
