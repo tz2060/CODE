@@ -621,7 +621,8 @@
         this.player.vx = 0;
       }
 
-      this.#updatePlayerPhysics(f);
+      // 还没跳下来之前不跑物理（隐藏状态下不该被输入推着走）
+      if (this.dropped) this.#updatePlayerPhysics(f);
       this.#updateCamera(dt);
     }
 
@@ -1473,6 +1474,8 @@
 
     #drawPlayer(g) {
       const p = this.player;
+      // 开场：纸飞机还在飞、马里奥还没跳下来 → 先不画（否则会站在起点地上）
+      if (this.state === 'intro' && !this.dropped) return;
       if (!p.alive && this.state !== 'dead') return;
       if (p.inv > 0 && Math.floor(p.inv * 12) % 2 === 0) return;
 

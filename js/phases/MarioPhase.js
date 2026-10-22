@@ -25,7 +25,6 @@
       m.reset();
       m.show();
 
-      game.ui.toast.show('STAGE 3 · 恶龙城堡');
     }
 
     update(dt) {
