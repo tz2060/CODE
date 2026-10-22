@@ -192,13 +192,15 @@
       this.phase.enter?.();
     }
 
-    /** 玩家第一次轻触：音乐开始，进入蓄能 */
+    /**
+     * 玩家第一次轻触：进入蓄能。
+     * 这里**不**放音乐——音乐与纸飞机的现身绑定，等 TransformPhase 一起开始。
+     */
     startRitual() {
       if (this.started) return;
       this.started = true;
 
       this.ui.covers.hideStart();
-      this.audio.play();
       this.ui.tapPad.setPrompt('继续轻触，让回声醒来');
       this.ui.tapPad.setHint('FOLLOW THE MUSIC');
       this.captions.show(0);

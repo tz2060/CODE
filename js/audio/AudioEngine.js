@@ -41,6 +41,13 @@
 
       this.muted = false;
       this.stopped = false;
+      /**
+       * 游戏是否已经要求播放。
+       * 音乐不再跟着「点击开始」走，而是等纸飞机现身时才 play()，
+       * 所以在这之前所有点击补播（retryPlay / resume）都必须让路，
+       * 否则蓄能阶段的轻触会把音乐提前放出来。
+       */
+      this.armed = false;
       this.context = null;
       this.analyser = null;
       this.sourceNode = null;
@@ -130,8 +137,9 @@
       return bytes.buffer;
     }
 
-    /** 开始播放（从 0 开始） */
+    /** 开始播放（从 0 开始）。调用即代表「游戏现在要音乐」——纸飞机现身的那一刻 */
     play() {
+      this.armed = true;
       this.stopped = false;
       this.ensureGraph();
       if (this.context && this.context.state === 'suspended') {
@@ -155,6 +163,7 @@
 
     /** 从当前位置继续播放 */
     resume() {
+      if (!this.armed || this.stopped) return; // 还没到纸飞机现身，别提前出声
       if (!this.element.paused) return;
       if (this.context && this.context.state === 'suspended') {
         this.context.resume().catch(() => {});
@@ -168,6 +177,7 @@
      * 这里给后续任意一次点击 / 触摸补一次机会。
      */
     retryPlay() {
+      if (!this.armed) return; // 游戏还没要求播放（蓄能阶段），别抢跑
       if (this.muted) return;
       if (this.stopped) return; // 已被游戏主动关掉（如进入第二关），不要再放起来
       if (!this.element.paused) return;
@@ -181,6 +191,7 @@
 
     stop() {
       this.stopped = true;
+      this.armed = false; // 交回「游戏还没要求播放」的状态，避免后续点击把音乐放起来
       try {
         this.element.pause();
         this.element.currentTime = 0;

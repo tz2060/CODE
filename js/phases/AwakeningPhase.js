@@ -2,7 +2,10 @@
  * 蓄能阶段
  * ---------------------------------------------------------------
  * 玩家轻触攒"风"。能量同时驱动雾气浓度——越接近起飞，画面越通透。
- * 攒满阈值、或在时间窗内连点到次数、或歌曲走到 9.6 秒，都会自动起飞。
+ * 攒满阈值、或在时间窗内连点到次数、或蓄能超过 autoLaunchAt 秒，都会自动起飞。
+ *
+ * 注意：这一段**没有音乐**（音乐与纸飞机现身绑定，在 TransformPhase 才开始），
+ * 所以兜底起飞只能按本阶段自己的计时，不能再看歌曲时间。
  */
 (function (PP) {
   const { clamp, lerp } = PP;
@@ -14,12 +17,15 @@
       this.energy = 0;
       this.clickTimes = [];
       this.launched = false;
+      /** 本阶段已经过去多久（秒） */
+      this.elapsed = 0;
     }
 
     enter() {
       this.energy = AWAKENING.startTapGain;
       this.clickTimes = [];
       this.launched = false;
+      this.elapsed = 0;
     }
 
     tap() {
@@ -45,13 +51,14 @@
       this.game.beginTransformation();
     }
 
-    update(dt, songTime) {
+    update(dt) {
+      this.elapsed += dt;
       this.energy = Math.max(0, this.energy - dt * AWAKENING.decayPerSecond);
 
       const fog = this.game.world.scene.fog;
       fog.density = lerp(fog.density, 0.0027 - this.energy * 0.00075, 0.03);
 
-      if (songTime >= AWAKENING.autoLaunchAt) this.launch();
+      if (this.elapsed >= AWAKENING.autoLaunchAt) this.launch();
     }
 
     exit() {}
