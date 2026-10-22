@@ -64,6 +64,13 @@
       window.addEventListener('touchstart', unlockAudio, { once: true, passive: true });
       window.addEventListener('keydown', unlockAudio, { once: true });
 
+      // 被自动播放策略拦下后：之后任意一次点击 / 触摸都再试一次播放
+      const retryAudio = () => this.audio.retryPlay();
+      window.addEventListener('click', retryAudio, { passive: true });
+      window.addEventListener('touchend', retryAudio, { passive: true });
+      // 微信内置浏览器：桥就绪后再解锁一次
+      document.addEventListener('WeixinJSBridgeReady', retryAudio);
+
       this.plane = new PaperPlane(this.world.scene);
       this.notes = new MusicNotes(this.world.scene);
       this.guide = new MelodyGuide(this.world.scene);
@@ -149,6 +156,15 @@
       this.audio.on('melodyready', () => {
         if (isFlying(this.state)) this.applyMelodyRoute();
       });
+
+      // 音乐真正响起来后，收起「请再次轻触」的提示
+      this.audio.on('playing', () => this.hideError());
+    }
+
+    hideError() {
+      if (!this.errorBox) return;
+      this.errorBox.textContent = '';
+      this.errorBox.style.display = 'none';
     }
 
     #bindUi() {

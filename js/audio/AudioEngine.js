@@ -55,6 +55,7 @@
 
       this.element.addEventListener('ended', () => this.emit('ended'));
       this.element.addEventListener('error', () => this.emit('error'));
+      this.element.addEventListener('playing', () => this.emit('playing'));
     }
 
     get currentTime() {
@@ -157,6 +158,22 @@
         this.context.resume().catch(() => {});
       }
       this.element.play().catch(() => {});
+    }
+
+    /**
+     * 重新尝试播放（不重置进度）。
+     * 手机浏览器的自动播放策略经常把第一次 play() 拦掉，
+     * 这里给后续任意一次点击 / 触摸补一次机会。
+     */
+    retryPlay() {
+      if (this.muted) return;
+      if (!this.element.paused) return;
+      this.ensureGraph();
+      if (this.context && this.context.state === 'suspended') {
+        this.context.resume().catch(() => {});
+      }
+      const promise = this.element.play();
+      if (promise && promise.catch) promise.catch(() => {});
     }
 
     stop() {
