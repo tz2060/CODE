@@ -16,6 +16,7 @@
     Sparks,
     DreamPhoto,
     DanmakuGame,
+    MarioGame,
     FlightController,
     ScoreSystem,
     CaptionSystem,
@@ -34,6 +35,7 @@
     FlightPhase,
     LevelClearPhase,
     DanmakuPhase,
+    MarioPhase,
     FarewellPhase,
     EndedPhase,
     BEAT,
@@ -50,6 +52,12 @@
       this.state = GameState.READY;
       this.started = false;
       this.finished = false;
+
+      /**
+       * 死亡惩罚（分）。
+       * 没有生命条数了——每死一次扣 100 分，扣到负数就从当前关卡重开。
+       */
+      this.penalty = 0;
 
       /** 音频结束的时刻（performance.now()/1000） */
       this.audioEndedAt = 0;
@@ -85,10 +93,24 @@
       this.dreamPhoto = new DreamPhoto(this.world.scene);
 
       // 下一关：分数破 130 后进入的 2D 弹幕「幻月」
-      this.danmaku = new DanmakuGame(document.querySelector('#danmaku'), (type) => {
-        this.audio.ensureGraph(); // 首次射击（用户手势）顺带解锁音频
-        this.audio.playSfx(type);
-      });
+      this.danmaku = new DanmakuGame(
+        document.querySelector('#danmaku'),
+        (type) => {
+          this.audio.ensureGraph(); // 首次射击（用户手势）顺带解锁音频
+          this.audio.playSfx(type);
+        },
+        () => this.penalize()
+      );
+
+      // 第三关：打败幻月后，纸飞机把马里奥送到「恶龙城堡」
+      this.mario = new MarioGame(
+        document.querySelector('#mario'),
+        (type) => {
+          this.audio.ensureGraph();
+          this.audio.playSfx(type);
+        },
+        () => this.penalize()
+      );
 
       this.ui = {
         hud: new Hud(),
@@ -113,6 +135,7 @@
         [GameState.FLIGHT]: new FlightPhase(this),
         [GameState.LEVEL_CLEAR]: new LevelClearPhase(this),
         [GameState.DANMAKU]: new DanmakuPhase(this),
+        [GameState.MARIO]: new MarioPhase(this),
         [GameState.FAREWELL]: new FarewellPhase(this),
         [GameState.ENDED]: new EndedPhase(this),
       };
@@ -247,10 +270,43 @@
       this.enterPhase(GameState.DANMAKU);
     }
 
+    /** 第二关通关：纸飞机放大飞过屏幕，把马里奥送到第三关「恶龙城堡」 */
+    enterMario() {
+      if (this.state !== GameState.DANMAKU) return;
+      this.enterPhase(GameState.MARIO);
+    }
+
     finish() {
       if (this.finished) return;
       this.finished = true;
       this.enterPhase(GameState.ENDED);
+    }
+
+    // ---------------------------------------------------------------
+    // 分数与死亡惩罚
+    // ---------------------------------------------------------------
+
+    /** 三个关卡加在一起的总分，扣掉死亡惩罚 */
+    get totalScore() {
+      return (
+        this.score.score +
+        (this.danmaku ? this.danmaku.score : 0) +
+        (this.mario ? this.mario.score : 0) -
+        this.penalty
+      );
+    }
+
+    /** 死一次扣 100 分（由 2D 关卡上报） */
+    penalize() {
+      this.penalty += 100;
+    }
+
+    /**
+     * 分数被扣到 0 以下 → **从当前关卡重新开始**，惩罚清零。
+     * 关卡自己的分数由各自的 reset() 清掉。
+     */
+    restartStage() {
+      this.penalty = 0;
     }
 
     // ---------------------------------------------------------------
@@ -299,6 +355,9 @@
       this.audioEndedAt = 0;
 
       this.score.reset();
+      this.penalty = 0;
+      this.danmaku.score = 0;
+      this.mario.score = 0;
       this.notes.reset();
       this.guide.visible = false;
       this.guide.setAnchor(0, 2.35, -0.7);
@@ -310,6 +369,7 @@
       this.sparks.clear();
       this.dreamPhoto.reset();
       this.danmaku.hide();
+      this.mario.hide();
       this.plane.visible = false;
       this.plane.reset(0, 2.35, 0, 1);
 
@@ -347,6 +407,7 @@
 
       this.phase.update(dt, songTime);
 
+
       // 兜底：后台标签页跳帧时也要能走到告别与结算
       if (this.audioHasEnded && this.state === GameState.FLIGHT && songTime >= FAR_END) {
         this.enterFarewell();
@@ -362,8 +423,10 @@
       this.sparks.update(dt);
       this.world.pulseSun(this.audio.energy, this.audio.lowEnergy);
       this.world.followCamera();
-      // 弹幕关由 2D 画布自己渲染，3D 世界先不画
-      if (this.state !== GameState.DANMAKU) this.world.render();
+      // 弹幕关 / 平台关由 2D 画布自己渲染，3D 世界先不画
+      if (this.state !== GameState.DANMAKU && this.state !== GameState.MARIO) {
+        this.world.render();
+      }
     };
 
     showError(message) {

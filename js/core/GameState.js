@@ -16,6 +16,8 @@
     LEVEL_CLEAR: 'levelclear',
     /** 弹幕关：分数破 130 后进入的下一关「幻月」 */
     DANMAKU: 'danmaku',
+    /** 横版平台关：打败幻月后，纸飞机把马里奥送到「恶龙城堡」 */
+    MARIO: 'mario',
     /** 告别：最后两个「再靠近一点」，飞机抬升远去 */
     FAREWELL: 'farewell',
     /** 结算：结束封面 */

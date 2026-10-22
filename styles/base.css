@@ -58,6 +58,21 @@ body {
   display: block;
 }
 
+/* 第三关：2D 横版平台画布，同层叠放 */
+#mario {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: none;
+  outline: none;
+  touch-action: none;
+}
+
+#mario.on {
+  display: block;
+}
+
 /* 第一关结束 → 第二关 的过场标题 */
 #stageCard {
   position: absolute;

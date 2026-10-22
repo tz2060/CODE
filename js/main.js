@@ -8,13 +8,15 @@
     window.__paperPlane = game;
     game.start();
 
-    // 直接进第二关：网址后加 ?stage=2（预览窗口键盘可能不聚焦，网址参数更稳）
+    // 直接进指定关卡：网址后加 ?stage=2 / ?stage=3
+    // （预览窗口键盘可能不聚焦，网址参数比快捷键更稳）
     try {
-      if (new URLSearchParams(location.search).get('stage') === '2') {
+      const stage = new URLSearchParams(location.search).get('stage');
+      if (stage === '2' || stage === '3') {
         document.querySelector('#startCover')?.classList.add('gone');
         const tap = document.querySelector('#tapArea');
         if (tap) tap.style.display = 'none';
-        game.enterPhase(PP.GameState.DANMAKU);
+        game.enterPhase(stage === '2' ? PP.GameState.DANMAKU : PP.GameState.MARIO);
       }
     } catch {
       /* 忽略 */

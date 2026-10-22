@@ -201,7 +201,9 @@
     }
 
     /**
-     * 程序合成的短音效（第二关弹幕用）：shoot / graze / hit / clear / over。
+     * 程序合成的短音效。
+     * 第二关：shoot / graze / hit / clear / over
+     * 第三关：jump / coin / brick / stomp / fire / bridge / die / win
      * 直接连 destination，不经过分析链，避免干扰能量曲线。
      */
     playSfx(type) {
@@ -244,6 +246,29 @@
       } else if (type === 'over') {
         blip(440, 'sine', t0, 0.28, 0.45, 220);
         blip(220, 'sine', t0 + 0.18, 0.5, 0.45, 110);
+      } else if (type === 'jump') {
+        // 马里奥跳跃：短促上滑
+        blip(360, 'square', t0, 0.14, 0.16, 760);
+      } else if (type === 'coin') {
+        blip(988, 'square', t0, 0.07, 0.2);
+        blip(1319, 'square', t0 + 0.07, 0.16, 0.2);
+      } else if (type === 'brick') {
+        blip(140, 'sawtooth', t0, 0.1, 0.28, 70);
+      } else if (type === 'stomp') {
+        blip(220, 'square', t0, 0.09, 0.26, 90);
+      } else if (type === 'fire') {
+        blip(520, 'sawtooth', t0, 0.16, 0.2, 180);
+      } else if (type === 'bridge') {
+        blip(120, 'sawtooth', t0, 0.5, 0.4, 48);
+        blip(60, 'sine', t0, 0.6, 0.34, 30);
+      } else if (type === 'die') {
+        blip(660, 'square', t0, 0.12, 0.3, 440);
+        blip(440, 'square', t0 + 0.14, 0.4, 0.3, 110);
+      } else if (type === 'win') {
+        blip(523, 'triangle', t0, 0.14, 0.34);
+        blip(659, 'triangle', t0 + 0.13, 0.14, 0.34);
+        blip(784, 'triangle', t0 + 0.26, 0.16, 0.34);
+        blip(1047, 'triangle', t0 + 0.4, 0.42, 0.34);
       }
     }
 

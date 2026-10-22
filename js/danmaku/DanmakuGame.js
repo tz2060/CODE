@@ -40,10 +40,12 @@
   }
 
   class DanmakuGame {
-    constructor(canvas, sfx) {
+    constructor(canvas, sfx, onLoseLife) {
       this.canvas = canvas;
       this.ctx = canvas.getContext('2d');
       this.sfx = typeof sfx === 'function' ? sfx : () => {};
+      /** 掉命回调：命数由 Game 统一管（100 分换 1 条），这里只上报 */
+      this.onLoseLife = typeof onLoseLife === 'function' ? onLoseLife : null;
       this.W = 1;
       this.H = 1;
       this.dpr = 1;
@@ -347,7 +349,6 @@
       this.battleTime = 0;
       this.score = 0;
       this.graze = 0;
-      this.lives = 3;
       this.bullets = [];
       this.pbullets = [];
       this.particles = [];
@@ -631,15 +632,12 @@
     #hit() {
       const p = this.player;
       this.sfx('hit');
-      this.lives -= 1;
       this.hitFlash = 1;
       p.inv = 2;
+      // 没有生命条数：每被击中一次扣 100 分（Game 统一记账），清掉周围弹幕后继续
+      if (this.onLoseLife) this.onLoseLife();
       for (const b of this.bullets) {
         if (Math.hypot(b.x - p.x, b.y - p.y) < 150) b.dead = true;
-      }
-      if (this.lives <= 0) {
-        p.alive = false;
-        this.#dead();
       }
     }
 
@@ -848,7 +846,7 @@
       g.textAlign = 'left';
       g.font = '600 12px ui-sans-serif, system-ui, sans-serif';
       g.fillStyle = 'rgba(255,248,230,0.9)';
-      g.fillText('残机 ' + this.lives, 16, this.H - 44);
+      g.fillText('SCORE ' + this.score, 16, this.H - 44);
       g.fillText('擦弹 ' + this.graze, 16, this.H - 26);
     }
 

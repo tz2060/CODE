@@ -23,6 +23,8 @@
     <div id="flightTransition" aria-hidden="true"></div>
     <!-- 第二关：2D 弹幕画布（分数破 130 后显示） -->
     <canvas id="danmaku" aria-hidden="true"></canvas>
+    <!-- 第三关：2D 横版平台画布（打败幻月后显示） -->
+    <canvas id="mario" aria-hidden="true"></canvas>
 
     <!-- HUD -->
     <div id="topbar">
@@ -115,6 +117,9 @@
     <!-- 弹幕关（第二关） -->
     <script src="js/danmaku/DanmakuGame.js"></script>
 
+    <!-- 横版平台关（第三关） -->
+    <script src="js/mario/MarioGame.js"></script>
+
     <!-- 阶段场景 -->
     <script src="js/phases/ReadyPhase.js"></script>
     <script src="js/phases/AwakeningPhase.js"></script>
@@ -122,6 +127,7 @@
     <script src="js/phases/FlightPhase.js"></script>
     <script src="js/phases/LevelClearPhase.js"></script>
     <script src="js/phases/DanmakuPhase.js"></script>
+    <script src="js/phases/MarioPhase.js"></script>
     <script src="js/phases/FarewellPhase.js"></script>
     <script src="js/phases/EndedPhase.js"></script>
 
