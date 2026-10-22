@@ -17,7 +17,6 @@
 
       game.ui.hud.hidePoem();
       game.ui.covers.showEnd();
-      game.ui.toast.show('游戏结束 · 纸飞机飞向远方');
     }
 
     update() {}

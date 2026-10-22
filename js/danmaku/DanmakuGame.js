@@ -20,6 +20,18 @@
     white: [255, 255, 255],
   };
 
+  /** 第二关纸飞机整体放大倍数：机身与受弹判定同比放大（用户要求大 0.5 倍） */
+  const PLAYER_SCALE = 1.5;
+
+  /**
+   * 移动速度（屏高比例，每秒）。固定值，触摸与键盘一样快。
+   * 弹幕最慢的一档是 0.16H，这里取 0.15H —— 比弹幕慢一点，才有躲的空间。
+   */
+  const MOVE_SPEED_RATIO = 0.15;
+
+  /** 移动时机身最大倾斜角（弧度，约 19°） */
+  const MAX_TILT = 0.34;
+
   function clamp(v, a, b) {
     return v < a ? a : v > b ? b : v;
   }
@@ -65,8 +77,11 @@
       this.ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
 
       const m = Math.min(this.W, this.H);
-      this.hitR = Math.max(3, m * 0.007);
+      this.playerScale = PLAYER_SCALE;
+      this.hitR = Math.max(3, m * 0.007) * PLAYER_SCALE;
       this.grazeR = this.hitR * 4.2;
+      // 固定移动速度：比最慢的一档弹幕（0.16H）略低
+      this.moveSpeed = Math.max(70, this.H * MOVE_SPEED_RATIO);
 
       this.#buildBackground();
 
@@ -75,6 +90,8 @@
         this.player.graze = this.grazeR;
         this.player.x = clamp(this.player.x, 20, this.W - 20);
         this.player.y = clamp(this.player.y, this.H * 0.34, this.H - 20);
+        this.player.tx = clamp(this.player.tx, 0, this.W);
+        this.player.ty = clamp(this.player.ty, 0, this.H);
       }
       if (this.boss) {
         this.boss.r = m * 0.085;
@@ -245,6 +262,12 @@
           this.pointer.id = e.pointerId;
           this.pointer.x = e.clientX;
           this.pointer.y = e.clientY;
+          // 目标点从飞机当前位置起步：按下只负责射击，滑动才移动
+          const p = this.player;
+          if (p && p.alive) {
+            p.tx = p.x;
+            p.ty = p.y;
+          }
           // 点击屏幕射击（按住连发）
           this.shooting = true;
           this.shootCd = 0;
@@ -262,10 +285,11 @@
           const dy = e.clientY - this.pointer.y;
           this.pointer.x = e.clientX;
           this.pointer.y = e.clientY;
+          // 只累积目标点，实际位移由 #updatePlayer 按固定速度推进
           const p = this.player;
           if (p && p.alive) {
-            p.x += dx;
-            p.y += dy;
+            p.tx = clamp(p.tx + dx, 0, this.W);
+            p.ty = clamp(p.ty + dy, 0, this.H);
           }
         },
         { passive: true }
@@ -275,6 +299,12 @@
         if (e.pointerId === this.pointer.id) {
           this.pointer.active = false;
           this.pointer.id = null;
+          // 松手即停：把目标点收回到飞机当前位置，免得它还追着旧目标滑一段
+          const p = this.player;
+          if (p) {
+            p.tx = p.x;
+            p.ty = p.y;
+          }
         }
         this.shooting = false;
       };
@@ -338,6 +368,11 @@
         graze: this.grazeR,
         inv: 0,
         alive: true,
+        /** 机身倾斜角（弧度）：按水平速度平滑趋近，松手回正 */
+        roll: 0,
+        /** 触摸目标点：手指位移累积到这里，飞机以固定速度追过去 */
+        tx: this.W * 0.5,
+        ty: this.H * 0.8,
       };
       this.boss = {
         x: this.W * 0.5,
@@ -404,18 +439,41 @@
       const p = this.player;
       if (!p.alive) return;
 
-      const sp = Math.min(this.W, this.H) * 0.95 * dt;
-      let dx = (this.keys.right ? 1 : 0) - (this.keys.left ? 1 : 0);
-      let dy = (this.keys.down ? 1 : 0) - (this.keys.up ? 1 : 0);
-      if (dx || dy) {
-        const l = Math.hypot(dx, dy);
-        p.x += (dx / l) * sp;
-        p.y += (dy / l) * sp;
+      // 固定速度移动：触摸是「以固定速度追手指」，键盘是「以固定速度走方向」。
+      // 两者共用 this.moveSpeed，所以不会出现「手快飞机就快」的差别。
+      const step = this.moveSpeed * dt;
+      let mx = 0;
+      let my = 0;
+
+      if (this.pointer.active) {
+        const dx = p.tx - p.x;
+        const dy = p.ty - p.y;
+        const d = Math.hypot(dx, dy);
+        if (d > 0.6) {
+          const s = Math.min(d, step); // 到点即停，不会过冲
+          mx = (dx / d) * s;
+          my = (dy / d) * s;
+        }
+      } else {
+        let dx = (this.keys.right ? 1 : 0) - (this.keys.left ? 1 : 0);
+        let dy = (this.keys.down ? 1 : 0) - (this.keys.up ? 1 : 0);
+        if (dx || dy) {
+          const l = Math.hypot(dx, dy);
+          mx = (dx / l) * step;
+          my = (dy / l) * step;
+        }
       }
+
+      p.x += mx;
+      p.y += my;
 
       const m = p.r * 2;
       p.x = clamp(p.x, m, this.W - m);
       p.y = clamp(p.y, this.H * 0.34, this.H - m);
+
+      // 机身倾斜：按水平速度给角度，松开手指自然回正
+      const target = dt > 0 ? clamp(mx / dt / this.moveSpeed, -1, 1) * MAX_TILT : 0;
+      p.roll += (target - p.roll) * (1 - Math.exp(-14 * dt));
 
       if (p.inv > 0) p.inv -= dt;
 
@@ -432,11 +490,13 @@
     #shoot() {
       const p = this.player;
       if (!p.alive) return;
+      const S = this.playerScale;
       const vy = -this.H * 0.95;
-      for (const ox of [-7, 7]) {
+      // 子弹从机头两侧射出（跟着放大后的机身走）
+      for (const ox of [-7 * S, 7 * S]) {
         this.pbullets.push({
           x: p.x + ox,
-          y: p.y - 14,
+          y: p.y - 20 * S,
           vx: 0,
           vy,
           r: Math.max(2.2, this.hitR * 0.55),
@@ -705,13 +765,22 @@
 
     #drawPlayer(g) {
       const p = this.player;
+      const S = this.playerScale;
+
+      // 地面投影：不跟着机身倾斜，单独画
       g.save();
       g.translate(p.x, p.y);
-
+      g.scale(S, S);
       g.fillStyle = 'rgba(40,60,80,0.16)';
       g.beginPath();
       g.ellipse(0, 16, 15, 5, 0, 0, TAU);
       g.fill();
+      g.restore();
+
+      g.save();
+      g.translate(p.x, p.y);
+      g.rotate(p.roll); // 移动时机身倾斜
+      g.scale(S, S);
 
       const blink = p.inv > 0 && Math.floor(p.inv * 10) % 2 === 0;
       g.globalAlpha = blink ? 0.45 : 1;
@@ -736,9 +805,10 @@
 
       g.globalAlpha = 1;
 
+      // 判定点 / 擦弹圈：除以 S，抵消 scale —— 画出来的半径就等于真实碰撞半径
       g.fillStyle = 'rgba(255,96,96,0.95)';
       g.beginPath();
-      g.arc(0, 0, p.r, 0, TAU);
+      g.arc(0, 0, p.r / S, 0, TAU);
       g.fill();
       g.strokeStyle = 'rgba(255,255,255,0.7)';
       g.lineWidth = 1;
@@ -747,7 +817,7 @@
       g.strokeStyle = 'rgba(130,225,255,0.45)';
       g.lineWidth = 1;
       g.beginPath();
-      g.arc(0, 0, p.graze, 0, TAU);
+      g.arc(0, 0, p.graze / S, 0, TAU);
       g.stroke();
 
       g.restore();
