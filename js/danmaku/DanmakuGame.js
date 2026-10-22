@@ -88,8 +88,10 @@
       if (this.player) {
         this.player.r = this.hitR;
         this.player.graze = this.grazeR;
-        this.player.x = clamp(this.player.x, 20, this.W - 20);
-        this.player.y = clamp(this.player.y, this.H * 0.34, this.H - 20);
+        // 活动范围 = 整个屏幕，只内缩一个判定直径，机身贴边也不会飞出去
+        const edge = this.hitR * 2;
+        this.player.x = clamp(this.player.x, edge, this.W - edge);
+        this.player.y = clamp(this.player.y, edge, this.H - edge);
         this.player.tx = clamp(this.player.tx, 0, this.W);
         this.player.ty = clamp(this.player.ty, 0, this.H);
       }
@@ -467,9 +469,10 @@
       p.x += mx;
       p.y += my;
 
+      // 活动范围与屏幕对齐：上下左右都只留一个判定直径，能飞到屏幕边缘
       const m = p.r * 2;
       p.x = clamp(p.x, m, this.W - m);
-      p.y = clamp(p.y, this.H * 0.34, this.H - m);
+      p.y = clamp(p.y, m, this.H - m);
 
       // 机身倾斜：按水平速度给角度，松开手指自然回正
       const target = dt > 0 ? clamp(mx / dt / this.moveSpeed, -1, 1) * MAX_TILT : 0;
