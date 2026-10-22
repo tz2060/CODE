@@ -43,6 +43,58 @@ body {
   outline: none;
 }
 
+/* 第二关：2D 弹幕画布，盖在 3D 场景之上、HUD 之下 */
+#danmaku {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: none;
+  outline: none;
+  touch-action: none;
+}
+
+#danmaku.on {
+  display: block;
+}
+
+/* 第一关结束 → 第二关 的过场标题 */
+#stageCard {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.35s ease;
+  z-index: 4;
+  color: #fff8e6;
+  text-shadow: 0 2px 24px rgba(60, 50, 30, 0.55);
+  letter-spacing: 0.18em;
+}
+
+#stageCard.show {
+  opacity: 1;
+}
+
+#stageCard span {
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: 0.22em;
+}
+
+#stageCard small {
+  font-size: 13px;
+  opacity: 0.85;
+}
+
+#stageCard.gone {
+  display: none;
+}
+
 /* 上下压暗，让 HUD 与字幕更清晰 */
 #shade {
   position: absolute;

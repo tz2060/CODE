@@ -12,6 +12,9 @@ window.PP = window.PP || {};
   /** 歌曲总时长（秒），用于结束淡出曲线的归一化 */
   const SONG_DURATION = 85.86;
 
+  /** 分数破这个值后进入弹幕关「幻月」（下一关） */
+  const DANMAKU_TRIGGER_SCORE = 130;
+
   /** 曲速与拍点，用于音符的呼吸律动 */
   const BPM = 136;
   const BEAT = 60 / BPM;
@@ -190,6 +193,7 @@ window.PP = window.PP || {};
   PP.STEER = STEER;
   PP.FLIGHT_X_LIMIT = FLIGHT_X_LIMIT;
   PP.DREAM_PHOTO = DREAM_PHOTO;
+  PP.DANMAKU_TRIGGER_SCORE = DANMAKU_TRIGGER_SCORE;
   PP.pathCenterX = pathCenterX;
   PP.CAPTIONS = CAPTIONS;
 })(window.PP);

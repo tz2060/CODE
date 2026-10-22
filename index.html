@@ -21,6 +21,8 @@
     <canvas id="scene" aria-label="午后公园中的纸飞机三维飞行场景"></canvas>
     <div id="shade"></div>
     <div id="flightTransition" aria-hidden="true"></div>
+    <!-- 第二关：2D 弹幕画布（分数破 130 后显示） -->
+    <canvas id="danmaku" aria-hidden="true"></canvas>
 
     <!-- HUD -->
     <div id="topbar">
@@ -43,6 +45,12 @@
     </div>
 
     <div id="toast"></div>
+
+    <!-- 第一关结束 → 第二关 过场标题 -->
+    <div id="stageCard" class="gone">
+      <span>STAGE 1 CLEAR</span>
+      <small>纸飞机飞向第二关</small>
+    </div>
 
     <!-- 封面 -->
     <div id="startCover">
@@ -105,11 +113,16 @@
     <script src="js/systems/InputController.js"></script>
     <script src="js/systems/MelodyRoute.js"></script>
 
+    <!-- 弹幕关（第二关） -->
+    <script src="js/danmaku/DanmakuGame.js"></script>
+
     <!-- 阶段场景 -->
     <script src="js/phases/ReadyPhase.js"></script>
     <script src="js/phases/AwakeningPhase.js"></script>
     <script src="js/phases/TransformPhase.js"></script>
     <script src="js/phases/FlightPhase.js"></script>
+    <script src="js/phases/LevelClearPhase.js"></script>
+    <script src="js/phases/DanmakuPhase.js"></script>
     <script src="js/phases/FarewellPhase.js"></script>
     <script src="js/phases/EndedPhase.js"></script>
 

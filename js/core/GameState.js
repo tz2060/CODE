@@ -1,6 +1,6 @@
 /**
  * 游戏阶段（场景）枚举
- * ready → awakening → transform → flight → farewell → ended
+ * ready → awakening → transform → flight → danmaku → farewell → ended
  */
 (function (PP) {
   const GameState = Object.freeze({
@@ -12,6 +12,10 @@
     TRANSFORM: 'transform',
     /** 飞行：跟随旋律收集音符 */
     FLIGHT: 'flight',
+    /** 第一关结束 → 纸飞机飞向第二关的过场 */
+    LEVEL_CLEAR: 'levelclear',
+    /** 弹幕关：分数破 130 后进入的下一关「幻月」 */
+    DANMAKU: 'danmaku',
     /** 告别：最后两个「再靠近一点」，飞机抬升远去 */
     FAREWELL: 'farewell',
     /** 结算：结束封面 */

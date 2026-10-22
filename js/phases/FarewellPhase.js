@@ -24,11 +24,13 @@
 
     enter() {
       const { game } = this;
-      this.t0 = game.audio.currentTime;
+      this.elapsed = 0;
+      this.span = 12; // 告别演出固定 12 秒（弹幕关后歌曲可能已结束，不能依赖歌曲时间）
 
       // 音符、引导线消失——画面留给那段回忆
       game.notes.hideAll();
       game.guide.visible = false;
+      game.plane.visible = true;
 
       const cam = game.world.camera;
       const plane = game.plane;
@@ -66,11 +68,10 @@
       game.ui.toast.show('再靠近一点');
     }
 
-    update(dt, songTime) {
+    update(dt) {
       const { game } = this;
-      const time = Math.min(songTime, SONG_DURATION);
-      const span = Math.max(0.001, SONG_DURATION - this.t0);
-      const p = clamp((time - this.t0) / span, 0, 1);
+      this.elapsed += dt;
+      const p = clamp(this.elapsed / this.span, 0, 1);
 
       const cam = game.world.camera;
       const plane = game.plane;
@@ -89,7 +90,7 @@
 
       game.dreamPhoto.update(dt);
 
-      if (time > SONG_DURATION - 0.15 && game.hasAudioEnded()) game.finish();
+      if (p >= 1) game.finishLevelOne();
     }
 
     exit() {

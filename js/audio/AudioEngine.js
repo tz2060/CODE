@@ -150,6 +150,48 @@
       }
     }
 
+    /**
+     * 程序合成的短音效（第二关弹幕用）：shoot / graze / hit / clear / over。
+     * 直接连 destination，不经过分析链，避免干扰能量曲线。
+     */
+    playSfx(type) {
+      if (this.muted) return;
+      const ctx = this.context;
+      if (!ctx || ctx.state !== 'running') return;
+
+      const t0 = ctx.currentTime;
+      const blip = (freq, wave, start, dur, vol, slideTo) => {
+        const o = ctx.createOscillator();
+        const g = ctx.createGain();
+        o.type = wave;
+        o.frequency.setValueAtTime(freq, start);
+        if (slideTo) o.frequency.exponentialRampToValueAtTime(slideTo, start + dur);
+        g.gain.setValueAtTime(0.0001, start);
+        g.gain.exponentialRampToValueAtTime(vol, start + 0.006);
+        g.gain.exponentialRampToValueAtTime(0.0001, start + dur);
+        o.connect(g);
+        g.connect(ctx.destination);
+        o.start(start);
+        o.stop(start + dur + 0.02);
+      };
+
+      if (type === 'shoot') {
+        blip(920, 'triangle', t0, 0.05, 0.038, 1500);
+      } else if (type === 'graze') {
+        blip(1680, 'sine', t0, 0.07, 0.045, 2100);
+      } else if (type === 'hit') {
+        blip(180, 'sawtooth', t0, 0.26, 0.12, 70);
+        blip(90, 'sine', t0, 0.3, 0.09);
+      } else if (type === 'clear') {
+        blip(660, 'triangle', t0, 0.16, 0.07);
+        blip(880, 'triangle', t0 + 0.12, 0.18, 0.07);
+        blip(1320, 'triangle', t0 + 0.24, 0.3, 0.07);
+      } else if (type === 'over') {
+        blip(440, 'sine', t0, 0.28, 0.09, 220);
+        blip(220, 'sine', t0 + 0.18, 0.5, 0.09, 110);
+      }
+    }
+
     /** 每帧更新三条能量曲线 */
     updateEnergy() {
       if (!this.analyser || !this.frequencyData) return;

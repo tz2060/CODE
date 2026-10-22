@@ -15,6 +15,7 @@
     MelodyGuide,
     Sparks,
     DreamPhoto,
+    DanmakuGame,
     FlightController,
     ScoreSystem,
     CaptionSystem,
@@ -31,6 +32,8 @@
     AwakeningPhase,
     TransformPhase,
     FlightPhase,
+    LevelClearPhase,
+    DanmakuPhase,
     FarewellPhase,
     EndedPhase,
     BEAT,
@@ -64,6 +67,12 @@
       // 结尾用：浮在镜头正前方的那张照片
       this.dreamPhoto = new DreamPhoto(this.world.scene);
 
+      // 下一关：分数破 130 后进入的 2D 弹幕「幻月」
+      this.danmaku = new DanmakuGame(document.querySelector('#danmaku'), (type) => {
+        this.audio.ensureGraph(); // 首次射击（用户手势）顺带解锁音频
+        this.audio.playSfx(type);
+      });
+
       this.ui = {
         hud: new Hud(),
         toast: new Toast(),
@@ -85,6 +94,8 @@
         [GameState.AWAKENING]: new AwakeningPhase(this),
         [GameState.TRANSFORM]: new TransformPhase(this),
         [GameState.FLIGHT]: new FlightPhase(this),
+        [GameState.LEVEL_CLEAR]: new LevelClearPhase(this),
+        [GameState.DANMAKU]: new DanmakuPhase(this),
         [GameState.FAREWELL]: new FarewellPhase(this),
         [GameState.ENDED]: new EndedPhase(this),
       };
@@ -184,6 +195,30 @@
       this.enterPhase(GameState.FAREWELL);
     }
 
+    /** 分数破阈值：第一关结束，纸飞机飞向第二关 */
+    enterLevelClear() {
+      if (this.state !== GameState.FLIGHT && this.state !== GameState.FAREWELL) return;
+      this.enterPhase(GameState.LEVEL_CLEAR);
+    }
+
+    /**
+     * 第一关（飞行 + 照片结尾）完整结束。
+     * 分数破 130 → 第一关结束、纸飞机飞向第二关；否则直接结算。
+     */
+    finishLevelOne() {
+      if (this.score.score > PP.DANMAKU_TRIGGER_SCORE) {
+        this.enterPhase(GameState.LEVEL_CLEAR);
+      } else {
+        this.finish();
+      }
+    }
+
+    /** 分数破阈值：进入弹幕关「幻月」 */
+    enterDanmaku() {
+      if (this.state !== GameState.FLIGHT && this.state !== GameState.LEVEL_CLEAR) return;
+      this.enterPhase(GameState.DANMAKU);
+    }
+
     finish() {
       if (this.finished) return;
       this.finished = true;
@@ -246,6 +281,7 @@
 
       this.sparks.clear();
       this.dreamPhoto.reset();
+      this.danmaku.hide();
       this.plane.visible = false;
       this.plane.reset(0, 2.35, 0, 1);
 
@@ -298,7 +334,8 @@
       this.sparks.update(dt);
       this.world.pulseSun(this.audio.energy, this.audio.lowEnergy);
       this.world.followCamera();
-      this.world.render();
+      // 弹幕关由 2D 画布自己渲染，3D 世界先不画
+      if (this.state !== GameState.DANMAKU) this.world.render();
     };
 
     showError(message) {
