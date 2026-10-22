@@ -58,6 +58,12 @@
       this.world = new World(this.canvas);
       this.audio = new AudioEngine();
 
+      // 移动端：第一次触摸 / 按键就解锁音频（iOS Safari、部分安卓浏览器要求）
+      const unlockAudio = () => this.audio.unlock();
+      window.addEventListener('pointerdown', unlockAudio, { once: true, passive: true });
+      window.addEventListener('touchstart', unlockAudio, { once: true, passive: true });
+      window.addEventListener('keydown', unlockAudio, { once: true });
+
       this.plane = new PaperPlane(this.world.scene);
       this.notes = new MusicNotes(this.world.scene);
       this.guide = new MelodyGuide(this.world.scene);

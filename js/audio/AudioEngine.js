@@ -34,6 +34,9 @@
       document.body.appendChild(this.element);
       this.element.preload = 'auto';
       this.element.playsInline = true;
+      // 老 iOS 需要属性写法才会内联播放
+      this.element.setAttribute('playsinline', '');
+      this.element.setAttribute('webkit-playsinline', '');
       this.element.load();
 
       this.muted = false;
@@ -95,10 +98,25 @@
 
       try {
         const bytes = await this.#loadBytes();
-        this.buffer = await this.context.decodeAudioData(bytes);
+        // 兼容老 Safari：decodeAudioData 只支持回调写法
+        this.buffer = await new Promise((resolve, reject) => {
+          const p = this.context.decodeAudioData(bytes, resolve, reject);
+          if (p && typeof p.then === 'function') p.then(resolve, reject);
+        });
         this.emit('melodyready', this.buffer);
       } catch (error) {
         console.warn('旋律分析不可用，使用内置旋律轮廓', error);
+      }
+    }
+
+    /**
+     * 首次用户手势里解锁音频（移动端必需）。
+     * iOS Safari / 部分安卓浏览器要求 AudioContext 在用户手势中创建并 resume。
+     */
+    unlock() {
+      this.ensureGraph();
+      if (this.context && this.context.state === 'suspended') {
+        this.context.resume().catch(() => {});
       }
     }
 
@@ -157,7 +175,12 @@
     playSfx(type) {
       if (this.muted) return;
       const ctx = this.context;
-      if (!ctx || ctx.state !== 'running') return;
+      if (!ctx) return;
+      // 上下文被挂起（切后台、iOS 首次未解锁）时先恢复；本次跳过，下一发再响
+      if (ctx.state !== 'running') {
+        ctx.resume().catch(() => {});
+        return;
+      }
 
       const t0 = ctx.currentTime;
       const blip = (freq, wave, start, dur, vol, slideTo) => {
@@ -176,19 +199,19 @@
       };
 
       if (type === 'shoot') {
-        blip(920, 'triangle', t0, 0.05, 0.038, 1500);
+        blip(920, 'triangle', t0, 0.05, 0.055, 1500);
       } else if (type === 'graze') {
-        blip(1680, 'sine', t0, 0.07, 0.045, 2100);
+        blip(1680, 'sine', t0, 0.07, 0.06, 2100);
       } else if (type === 'hit') {
-        blip(180, 'sawtooth', t0, 0.26, 0.12, 70);
-        blip(90, 'sine', t0, 0.3, 0.09);
+        blip(180, 'sawtooth', t0, 0.26, 0.15, 70);
+        blip(90, 'sine', t0, 0.3, 0.11);
       } else if (type === 'clear') {
-        blip(660, 'triangle', t0, 0.16, 0.07);
-        blip(880, 'triangle', t0 + 0.12, 0.18, 0.07);
-        blip(1320, 'triangle', t0 + 0.24, 0.3, 0.07);
+        blip(660, 'triangle', t0, 0.16, 0.09);
+        blip(880, 'triangle', t0 + 0.12, 0.18, 0.09);
+        blip(1320, 'triangle', t0 + 0.24, 0.3, 0.09);
       } else if (type === 'over') {
-        blip(440, 'sine', t0, 0.28, 0.09, 220);
-        blip(220, 'sine', t0 + 0.18, 0.5, 0.09, 110);
+        blip(440, 'sine', t0, 0.28, 0.11, 220);
+        blip(220, 'sine', t0 + 0.18, 0.5, 0.11, 110);
       }
     }
 

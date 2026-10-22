@@ -168,6 +168,8 @@ fs.writeFileSync('vendor/three.min.js', s.slice(0,i)+'window.THREE={'+pairs.join
 
 音乐就是原型里那段，以 base64 形式放在 `js/audio/song-data.js` 里（约 1.83 MB），是项目里唯一的音频来源，没有 mp3 副本。`AudioEngine` 直接把它拼成 `data:` URL 交给 `<audio>` 元素播放。
 
+第二关的音效（射击 / 擦弹 / 中弹 / 通关 / 失败）也不走文件，全部由 `AudioEngine.playSfx()` 用 Web Audio 振荡器实时合成——同样是硬编码、零外部资源，离线与 `file://` 下都能用。
+
 ### 为什么不用独立的 mp3 文件
 
 把音频接进 Web Audio 分析链后（`createMediaElementSource`），**外部 mp3 在 file:// 下属跨域资源**，浏览器会把它静音重路由——控制台会提示：
@@ -324,6 +326,7 @@ constants.js
 | 能力 | 说明 |
 | --- | --- |
 | 音频自动播放 | 所有浏览器都要求首次点击后才能出声，这是策略限制；进入页面后轻触一下即可。 |
+| 移动端音频解锁 | iOS Safari / 部分安卓浏览器要求 `AudioContext` 在用户手势里创建并 `resume`；游戏在第一次触摸 / 按键时自动解锁，音效所在上下文被挂起时会自动恢复。 |
 | 旋律分析 | 不依赖网络：直接解 base64 得到 PCM，真实音高驱动的旋律路线随时可用。 |
 
 > 原型的音频用 base64 内嵌在 HTML 里（1.8MB），现在 `index.html` 只有 5KB，音乐的 base64 独立放在 `js/audio/song-data.js`（见「内置音乐在哪里？」）。
