@@ -51,11 +51,13 @@
   const RUN_ACCEL = 0.0556;
   const FRICTION = 0.052;
   const JUMP_V = -4.9;
+  /** 长按方向多久从走速升到跑速（秒） */
+  const DASH_RAMP = 0.65;
   /**
-   * 冲刺跳跃加成：跳跃高度 = v² / 2g，所以想让高度变成 1.3 倍，
-   * 初速只要乘 √1.3 ≈ 1.14。按住 B 冲刺起跳时用这个倍率。
+   * 跳跃高度随速度的增益：高度 = v²/2g，满速时希望高度是 1.3 倍，
+   * 所以初速乘 √(1 + 0.3) ≈ 1.14。速度越快跳得越高，站着跳最低。
    */
-  const JUMP_RUN_MUL = Math.sqrt(1.3);
+  const JUMP_SPEED_GAIN = 0.3;
   /** 转向时的刹车倍率（反向输入会明显减速） */
   const TURN_BOOST = 2.4;
 
@@ -133,6 +135,25 @@
       '..BBB......BBB..',
       '..BB........BB..',
     ],
+    /** 蹲姿：矮胖，占满 16 行（和碰撞盒 h=16 对齐） */
+    duck: [
+      '....RRRRRR......',
+      '...RRRRRRRRR....',
+      '...HHHSSSFS.....',
+      '..HSHSSSSFSS....',
+      '..HHSSSSFFFF....',
+      '..SSRRRRRRSS....',
+      '.SSRRBBBBRRSS...',
+      '.SSBBBBBBBBSS...',
+      '..BBBBBBBBBB....',
+      '..BBBBBBBBBB....',
+      '..BBBB..BBBB....',
+      '..BBBB..BBBB....',
+      '.HHHH...HHHH....',
+      '.HHHH...HHHH....',
+      '.HHHH...HHHH....',
+      '.HHHH...HHHH....',
+    ],
   };
 
   /** 超级蘑菇：红帽白点 + 米色柄 */
@@ -183,8 +204,8 @@
       this.bound = false;
 
       this.touches = new Map();
-      this.kb = { left: false, right: false, run: false, jump: false };
-      this.keys = { left: false, right: false, run: false, jump: false };
+      this.kb = { left: false, right: false, down: false, jump: false };
+      this.keys = { left: false, right: false, down: false, jump: false };
 
       this.tiles = [];
       this.sprites = {};
@@ -260,7 +281,7 @@
       this.btn = {
         left: { x: r + 18, y: cy, r },
         right: { x: r * 3.1 + 18, y: cy, r },
-        run: { x: this.W - r * 3.1 - 20, y: cy, r },
+        down: { x: this.W - r * 3.1 - 20, y: cy, r },
         jump: { x: this.W - r - 20, y: cy, r },
       };
     }
@@ -405,6 +426,10 @@
         inv: 0,
         alive: true,
         jumpLock: false,
+        /** 大马里奥蹲下时为 true（碰撞盒高度 32 → 16） */
+        ducking: false,
+        /** 长按方向的累积时间：用来从走速平滑升到跑速 */
+        dashTime: 0,
       };
 
       this.plane = { x: 420, y: 28, s: 2.8, visible: true };
@@ -420,7 +445,7 @@
       };
 
       this.#spawnEnemies();
-      this.keys.left = this.keys.right = this.keys.run = this.keys.jump = false;
+      this.keys.left = this.keys.right = this.keys.down = this.keys.jump = false;
       this.touches.clear();
     }
 
@@ -463,7 +488,7 @@
       this.active = false;
       this.canvas.classList.remove('on');
       this.touches.clear();
-      this.keys.left = this.keys.right = this.keys.run = this.keys.jump = false;
+      this.keys.left = this.keys.right = this.keys.down = this.keys.jump = false;
     }
 
     // ---------------------------------------------------------------
@@ -505,7 +530,7 @@
     #hitButton(x, y) {
       const b = this.btn;
       if (!b) return null;
-      for (const name of ['left', 'right', 'run', 'jump']) {
+      for (const name of ['left', 'right', 'down', 'jump']) {
         const btn = b[name];
         if (Math.hypot(x - btn.x, y - btn.y) <= btn.r * 1.18) return name;
       }
@@ -518,7 +543,7 @@
       let handled = true;
       if (k === 'ArrowLeft' || k === 'a' || k === 'A') this.kb.left = down;
       else if (k === 'ArrowRight' || k === 'd' || k === 'D') this.kb.right = down;
-      else if (k === 'Shift' || k === 'x' || k === 'X') this.kb.run = down;
+      else if (k === 'ArrowDown' || k === 's' || k === 'S') this.kb.down = down;
       else if (k === ' ' || k === 'Spacebar' || k === 'ArrowUp' || k === 'w' || k === 'W')
         this.kb.jump = down;
       else handled = false;
@@ -532,7 +557,7 @@
       const held = [...this.touches.values()];
       this.keys.left = this.kb.left || held.includes('left');
       this.keys.right = this.kb.right || held.includes('right');
-      this.keys.run = this.kb.run || held.includes('run');
+      this.keys.down = this.kb.down || held.includes('down');
       this.keys.jump = this.kb.jump || held.includes('jump');
     }
 
@@ -643,10 +668,20 @@
     #updatePlayerPhysics(f) {
       const p = this.player;
       if (!p.alive) return;
+      const dt = f / 60;
+
+      // 蹲下：只有大马里奥能蹲，蹲着不能走、不能跳
+      this.#updateDuck();
 
       const want = (this.keys.right ? 1 : 0) - (this.keys.left ? 1 : 0);
-      const maxSpeed = this.keys.run ? RUN : WALK;
-      const accel = this.keys.run ? RUN_ACCEL : ACCEL;
+
+      // 长按方向自动加速：按住 0.65 秒从走速平滑升到跑速。
+      // **蹲着不能加速**——dashTime 直接清零，只保留走速。
+      if (want !== 0 && !p.ducking) p.dashTime = Math.min(p.dashTime + dt, 1.5);
+      else p.dashTime = Math.max(p.dashTime - dt * 3, 0);
+      const ratio = p.ducking ? 0 : clamp(p.dashTime / DASH_RAMP, 0, 1);
+      const maxSpeed = WALK + (RUN - WALK) * ratio;
+      const accel = ACCEL + (RUN_ACCEL - ACCEL) * ratio;
 
       if (want !== 0) {
         const turning = p.vx !== 0 && Math.sign(p.vx) !== want;
@@ -659,10 +694,10 @@
         else p.vx -= Math.sign(p.vx) * FRICTION * f;
       }
 
+      // 起跳：**跳跃高度跟着当前速度走**——站着跳最低，满速跳最高（高度 ×1.3）
       if (this.keys.jump && p.onGround && !p.jumpLock) {
-        // 冲刺（按住 B，或已经跑到超过走速）时跳得更高：高度 ×1.3
-        const running = this.keys.run || Math.abs(p.vx) > WALK;
-        p.vy = JUMP_V * (running ? JUMP_RUN_MUL : 1);
+        const speedRatio = clamp(Math.abs(p.vx) / RUN, 0, 1);
+        p.vy = JUMP_V * Math.sqrt(1 + JUMP_SPEED_GAIN * speedRatio);
         p.onGround = false;
         p.jumpLock = true;
         this.sfx('jump');
@@ -676,6 +711,44 @@
       this.#moveY(p, p.vy * f);
 
       if (p.y > (GROUND + 1) * TILE + 24) this.#kill();
+    }
+
+    /** 蹲下：大马里奥按 B 缩成 16 高；站起来前先确认头顶有空间 */
+    #updateDuck() {
+      const p = this.player;
+      if (!p.big) {
+        if (p.ducking) {
+          p.ducking = false;
+          p.h = 16;
+        }
+        return;
+      }
+      // 地面按 B 蹲下；已经蹲着跳起来时保持蹲姿（蹲跳）
+      if (this.keys.down && (p.onGround || p.ducking)) {
+        p.ducking = true;
+        p.h = 16;
+        return;
+      }
+      if (p.ducking) {
+        const oldH = p.h;
+        p.h = 32;
+        if (this.#fits(p)) p.ducking = false;
+        else p.h = oldH;
+      }
+    }
+
+    /** 碰撞盒是否与实心 tile 重叠（判断能不能站起来） */
+    #fits(p) {
+      const x0 = Math.floor((p.x - p.w / 2 + 0.5) / TILE);
+      const x1 = Math.floor((p.x + p.w / 2 - 0.5) / TILE);
+      const y0 = Math.floor((p.y - p.h + 0.5) / TILE);
+      const y1 = Math.floor((p.y - 0.5) / TILE);
+      for (let tx = x0; tx <= x1; tx++) {
+        for (let ty = y0; ty <= y1; ty++) {
+          if (this.#solidAt(tx, ty)) return false;
+        }
+      }
+      return true;
     }
 
     #moveX(p, dx) {
@@ -1152,75 +1225,118 @@
         for (let y = 0; y < ROWS; y++) {
           const v = this.tiles[y][x];
           if (!v) continue;
-          this.#drawTile(g, x * TILE, y * TILE, v);
+          this.#drawTile(g, x, y, v);
         }
       }
     }
 
-    #drawTile(g, x, y, v) {
+    #drawTile(g, tx, ty, v) {
+      const x = tx * TILE;
+      const y = ty * TILE;
+
       if (v === T_GROUND) {
+        // 地面：橙棕砖块
         g.fillStyle = '#c46a2a';
         g.fillRect(x, y, TILE, TILE);
-        g.fillStyle = '#a4521c';
-        g.fillRect(x, y + TILE - 3, TILE, 3);
-        g.strokeStyle = 'rgba(0,0,0,0.18)';
-        g.lineWidth = 0.8;
+        g.fillStyle = '#e08a45';
+        g.fillRect(x + 1, y + 1, TILE - 2, 1.5);
+        g.strokeStyle = 'rgba(90,45,10,0.45)';
+        g.lineWidth = 0.9;
         g.beginPath();
+        g.moveTo(x, y + 8);
+        g.lineTo(x + TILE, y + 8);
         g.moveTo(x + 8, y);
-        g.lineTo(x + 8, y + 7);
-        g.moveTo(x, y + 7);
-        g.lineTo(x + TILE, y + 7);
-        g.moveTo(x + 4, y + 7);
-        g.lineTo(x + 4, y + TILE - 3);
-        g.moveTo(x + 12, y + 7);
-        g.lineTo(x + 12, y + TILE - 3);
+        g.lineTo(x + 8, y + 8);
+        g.moveTo(x + 4, y + 8);
+        g.lineTo(x + 4, y + TILE);
+        g.moveTo(x + 12, y + 8);
+        g.lineTo(x + 12, y + TILE);
         g.stroke();
       } else if (v === T_BRICK) {
+        // 砖块：四行砖缝，竖缝交错
         g.fillStyle = '#c46a2a';
         g.fillRect(x, y, TILE, TILE);
         g.fillStyle = '#e08a45';
         g.fillRect(x + 1, y + 1, TILE - 2, 2);
-        g.strokeStyle = 'rgba(80,40,10,0.5)';
+        g.strokeStyle = 'rgba(70,34,8,0.55)';
         g.lineWidth = 0.9;
         g.beginPath();
-        g.moveTo(x, y + 5.5);
-        g.lineTo(x + TILE, y + 5.5);
-        g.moveTo(x, y + 10.5);
-        g.lineTo(x + TILE, y + 10.5);
+        for (let i = 1; i <= 3; i++) {
+          g.moveTo(x, y + i * 4);
+          g.lineTo(x + TILE, y + i * 4);
+        }
         g.moveTo(x + 8, y);
-        g.lineTo(x + 8, y + 5.5);
-        g.moveTo(x + 4, y + 5.5);
-        g.lineTo(x + 4, y + 10.5);
-        g.moveTo(x + 12, y + 5.5);
-        g.lineTo(x + 12, y + 10.5);
-        g.moveTo(x + 8, y + 10.5);
-        g.lineTo(x + 8, y + TILE);
+        g.lineTo(x + 8, y + 4);
+        g.moveTo(x + 4, y + 4);
+        g.lineTo(x + 4, y + 8);
+        g.moveTo(x + 12, y + 4);
+        g.lineTo(x + 12, y + 8);
+        g.moveTo(x + 8, y + 8);
+        g.lineTo(x + 8, y + 12);
+        g.moveTo(x + 4, y + 12);
+        g.lineTo(x + 4, y + TILE);
+        g.moveTo(x + 12, y + 12);
+        g.lineTo(x + 12, y + TILE);
         g.stroke();
       } else if (v === T_QUESTION) {
-        g.fillStyle = '#e8a33d';
+        // 问号块：金色 + 四角铆钉 + 呼吸闪烁
+        const pulse = 0.5 + 0.5 * Math.sin(this.timer * 5 + tx * 0.9);
+        g.fillStyle = '#c98a1e';
         g.fillRect(x, y, TILE, TILE);
-        g.fillStyle = '#f6c96b';
+        g.fillStyle = `rgba(255, 214, 96, ${0.75 + pulse * 0.25})`;
         g.fillRect(x + 1.5, y + 1.5, TILE - 3, TILE - 3);
-        g.fillStyle = '#a4661a';
+        g.fillStyle = '#8a5a10';
+        for (const [ox, oy] of [
+          [3, 3],
+          [13, 3],
+          [3, 13],
+          [13, 13],
+        ]) {
+          g.fillRect(x + ox - 0.8, y + oy - 0.8, 1.6, 1.6);
+        }
+        g.fillStyle = '#7a4a08';
         g.font = 'bold 11px Georgia, serif';
         g.textAlign = 'center';
         g.textBaseline = 'middle';
         g.fillText('?', x + TILE / 2, y + TILE / 2 + 0.5);
       } else if (v === T_SOLID) {
-        g.fillStyle = '#9c9c9c';
+        // 阶梯：棕色硬块
+        g.fillStyle = '#b06a2c';
         g.fillRect(x, y, TILE, TILE);
-        g.fillStyle = '#c4c4c4';
+        g.fillStyle = '#d08a4a';
         g.fillRect(x + 1.5, y + 1.5, TILE - 3, TILE - 3);
-        g.strokeStyle = 'rgba(70,70,70,0.5)';
+        g.strokeStyle = 'rgba(80,40,10,0.45)';
         g.lineWidth = 0.8;
         g.strokeRect(x + 1.5, y + 1.5, TILE - 3, TILE - 3);
       } else if (v === T_PIPE) {
+        // 水管：两列拼成一根，只在最外侧画边缘；最上一格画管口
+        const leftOpen = tx === 0 || this.tiles[ty][tx - 1] !== T_PIPE;
+        const rightOpen = tx === COLS - 1 || this.tiles[ty][tx + 1] !== T_PIPE;
+        const isTop = ty === 0 || this.tiles[ty - 1][tx] !== T_PIPE;
+
         g.fillStyle = '#2e9b3f';
         g.fillRect(x, y, TILE, TILE);
-        g.fillStyle = '#4cc35c';
-        g.fillRect(x + 2, y, 4, TILE);
-        g.fillStyle = 'rgba(0,0,0,0.16)';
-        g.fillRect(x + TILE - 3, y, 3, TILE);
+        g.fillStyle = '#5cd36b';
+        g.fillRect(x + (leftOpen ? 2 : 1), y, leftOpen ? 5 : 4, TILE);
+        if (rightOpen) {
+          g.fillStyle = 'rgba(0,0,0,0.22)';
+          g.fillRect(x + TILE - 4, y, 4, TILE);
+        }
+
+        if (isTop) {
+          const lx = leftOpen ? x - 2 : x;
+          const rx = rightOpen ? x + TILE + 2 : x + TILE;
+          g.fillStyle = '#2e9b3f';
+          g.fillRect(lx, y, rx - lx, 6);
+          g.fillStyle = '#5cd36b';
+          g.fillRect(lx + 2, y + 1, 5, 4);
+          if (rightOpen) {
+            g.fillStyle = 'rgba(0,0,0,0.22)';
+            g.fillRect(rx - 5, y + 1, 3, 4);
+          }
+          g.fillStyle = 'rgba(0,0,0,0.18)';
+          g.fillRect(lx, y + 6, rx - lx, 1);
+        }
       }
     }
 
@@ -1370,12 +1486,18 @@
       const spr = this.sprites['mario_' + pose];
       if (!spr) return;
 
-      // 大马里奥：同一张图纵向拉高到 32
-      const h = p.big ? 32 : 16;
       g.save();
       g.translate(p.x, p.y);
       g.scale(p.face, 1);
-      g.drawImage(spr, -8, -h, 16, h);
+      if (p.ducking) {
+        // 蹲姿专用 sprite（16×16，矮胖），和碰撞盒 h=16 对齐
+        const duckSpr = this.sprites.mario_duck || spr;
+        g.drawImage(duckSpr, -8, -16, 16, 16);
+      } else {
+        // 大马里奥是同一张图整体放大 2 倍（32×32），小马里奥 16×16
+        const size = p.big ? 32 : 16;
+        g.drawImage(spr, -size / 2, -size, size, size);
+      }
       g.restore();
     }
 
@@ -1472,7 +1594,7 @@
       const held = [...this.touches.values()];
       draw(this.btn.left, '‹', held.includes('left') || this.kb.left);
       draw(this.btn.right, '›', held.includes('right') || this.kb.right);
-      draw(this.btn.run, 'B', held.includes('run') || this.kb.run);
+      draw(this.btn.down, 'B', held.includes('down') || this.kb.down);
       draw(this.btn.jump, 'A', held.includes('jump') || this.kb.jump);
     }
 
